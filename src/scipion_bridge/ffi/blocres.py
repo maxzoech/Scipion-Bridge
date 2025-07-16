@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from functools import partial
 
-from external_call import foreign_function, Domain
-from proxy import proxify, OutputInfo
+from ..external_call import foreign_function, Domain
+from ..proxy import proxify, OutputInfo
 
 
 def find_blocres():
@@ -51,7 +51,7 @@ def _postprocess_blocres(args):
     args_validation={
         # "map_1": "(.+)\.map",
         # "map_2": "(.+)\.map",
-        "sampling": "[0-9]+\.[0-9]+,[0-9]+\.[0-9]+,[0-9]+\.[0-9]+",
+        # "sampling": "[0-9]+\.[0-9]+,[0-9]+\.[0-9]+,[0-9]+\.[0-9]+",
     },
     postprocess_fn=_postprocess_blocres,
 )

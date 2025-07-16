@@ -2,4 +2,6 @@ def configure_default_env():
     from .container import Container
 
     container = Container()
-    container.wire(modules=[__name__, "emv_tools.ffi.scipion"], packages=["emv_tools"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.ffi.scipion"], packages=["scipion_bridge"]
+    )

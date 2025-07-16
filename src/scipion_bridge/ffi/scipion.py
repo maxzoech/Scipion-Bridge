@@ -1,7 +1,7 @@
 from functools import partial
 
-from external_call import foreign_function, Domain
-from proxy import proxify, OutputInfo
+from ..external_call import foreign_function, Domain
+from ..proxy import proxify, OutputInfo
 
 xmipp_func = partial(foreign_function, domain=Domain("XMIPP", ["scipion", "run"]))
 
