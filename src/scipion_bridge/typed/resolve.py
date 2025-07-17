@@ -1,6 +1,5 @@
-from typing import Callable, TypeVar, NewType, Type, Any, Tuple, Generic
-
-T = TypeVar("T")
+import functools
+from typing import NewType, Type, Any, Optional
 
 registry = {}
 
@@ -18,10 +17,10 @@ def resolver(f):
     return f
 
 
-def resolve(value: Any, *, astype: Type) -> T:
+def resolve(value: Any, *, astype: Type):
 
+    out_dtype = astype
     for in_dtype in value.__class__.__mro__:
-        out_dtype = astype
 
         key = (in_dtype, out_dtype)
         try:
@@ -35,22 +34,3 @@ def resolve(value: Any, *, astype: Type) -> T:
         raise TypeError(
             f"Instance of {value.__class__} can not be resolved as {astype}"
         )
-
-
-class Proxy:
-    pass
-
-
-class Volume(Proxy):
-    pass
-
-
-@resolver
-def resolve_volume_to_str(value: Volume) -> str:
-    return "Volume data"
-
-
-vol = Volume()
-print(registry)
-print(resolve(vol, astype=str))
-# print(resolve(vol, astype=Proxy))
