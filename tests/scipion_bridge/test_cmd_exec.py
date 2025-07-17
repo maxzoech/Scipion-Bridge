@@ -5,7 +5,7 @@ from scipion_bridge.external_call import Domain
 from scipion_bridge.utils.environment.cmd_exec import ShellExecProvider
 from subprocess import PIPE
 
-PYTHON_DOMAIN = Domain("PY", "python")
+PYTHON_DOMAIN = Domain("PY", [])
 
 
 def test_shell_exec():

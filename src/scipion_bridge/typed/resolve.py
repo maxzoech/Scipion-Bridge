@@ -17,7 +17,7 @@ def resolver(f):
     return f
 
 
-def resolve(value: Any, *, astype: Type):
+def resolve(value: Any, *, astype):
 
     out_dtype = astype
     for in_dtype in value.__class__.__mro__:

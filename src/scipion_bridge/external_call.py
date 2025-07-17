@@ -23,8 +23,8 @@ from .func_params import extract_func_params
 
 @dataclass
 class Domain:
-    name: List[str]
-    command: str
+    name: str
+    command: List[str]
 
 
 def _func_is_empty(func):
@@ -157,6 +157,3 @@ def foreign_function(
         return __scipion_bridge_runner__(func_name, domain, raw_args, run_args)
 
     return wrapper
-
-
-__all__ = [foreign_function]

@@ -12,9 +12,17 @@ from ..utils.environment.temp_files import TemporaryFilesProvider
 from ..func_params import extract_func_params
 
 from . import resolve
-from typing import Optional, NewType
+from typing import Optional, NewType, TypeAlias
 
-FileLocation = NewType("FileLocation", str)
+
+# class FileLocation:
+#     def __init__(self, value: str) -> None:
+#         self.value = value
+
+#     def __str__(self) -> str:
+#         return self.value
+
+FileLocation: TypeAlias = str
 
 
 class Proxy:
@@ -28,7 +36,8 @@ class Proxy:
 
         self.owned = owned
 
-    def file_ext() -> Optional[str]:
+    @classmethod
+    def file_ext(cls) -> Optional[str]:
         return None
 
     @inject
@@ -96,7 +105,7 @@ def proxify(f):
 
 @resolve.resolver
 def resolve_path_to_file_location(value: Path) -> FileLocation:
-    return str(value)
+    return FileLocation(value)
 
 
 @resolve.resolver
