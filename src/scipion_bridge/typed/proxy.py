@@ -12,15 +12,8 @@ from ..utils.environment.temp_files import TemporaryFilesProvider
 from ..func_params import extract_func_params
 
 from . import resolve
-from typing import Optional, NewType, TypeAlias
-
-
-# class FileLocation:
-#     def __init__(self, value: str) -> None:
-#         self.value = value
-
-#     def __str__(self) -> str:
-#         return self.value
+from typing import Optional, TypeVar, Generic, Type
+from typing_extensions import TypeAlias
 
 FileLocation: TypeAlias = str
 
@@ -47,6 +40,7 @@ class Proxy:
             Container.temp_file_provider
         ],
     ):
+
         try:
             if self.owned == True:
                 temp_file_provider.delete(self.path)
@@ -111,3 +105,28 @@ def resolve_path_to_file_location(value: Path) -> FileLocation:
 @resolve.resolver
 def resolve_proxy_to_file_location(value: Proxy) -> FileLocation:
     return resolve.resolve(value.path, astype=FileLocation)
+
+
+T = TypeVar("T")
+
+
+class Out:
+    def __init__(self, dtype: Type[T]) -> None:
+        assert issubclass(dtype, Proxy)
+        self.dtype = dtype
+
+
+@resolve.resolver
+@inject
+def resolve_output_to_proxy(
+    value: Out,
+    temp_file_provider: TemporaryFilesProvider = Provide[Container.temp_file_provider],
+) -> Proxy:
+
+    file_ext = value.dtype.file_ext()
+    temp_file = temp_file_provider.new_temporary_file(file_ext)
+
+    new_proxy = value.dtype(Path(temp_file), owned=True, role=Proxy.Role.INPUT)
+
+    assert isinstance(new_proxy, Proxy)
+    return new_proxy

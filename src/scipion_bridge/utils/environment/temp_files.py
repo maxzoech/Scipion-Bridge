@@ -1,13 +1,14 @@
 import os
 from pathlib import Path
 import tempfile
+from typing import Optional
 
 import logging
 
 
 class TemporaryFilesProvider:
 
-    def new_temporary_file(self, suffix: str) -> os.PathLike:
+    def new_temporary_file(self, suffix: Optional[str]) -> os.PathLike:
         new_file = tempfile.NamedTemporaryFile(suffix=suffix, delete=False).name
         logging.debug(f"Creating new temporary file at {new_file}")
 

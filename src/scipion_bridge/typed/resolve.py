@@ -1,7 +1,9 @@
 import functools
-from typing import NewType, Type, Any, Optional
+from typing import NewType, Type, Any, Optional, TypeVar
 
 registry = {}
+
+T = TypeVar("T")
 
 
 def resolver(f):
@@ -17,7 +19,7 @@ def resolver(f):
     return f
 
 
-def resolve(value: Any, *, astype):
+def resolve(value: Any, *, astype: Type[T]) -> T:
 
     out_dtype = astype
     for in_dtype in value.__class__.__mro__:
