@@ -9,7 +9,7 @@ from scipion_bridge.utils.environment import configure_default_env
 
 import pytest
 from pytest_mock import MockerFixture
-from typing import Optional
+from typing import Optional, Union
 
 
 class TempFileMock:
@@ -31,7 +31,7 @@ def test_resolve_proxy():
 
     @proxy.proxify
     def foo(
-        inputs: proxy.Proxy | Path, outputs: proxy.Proxy | Path
+        inputs: Union[proxy.Proxy, Path], outputs: Union[proxy.Proxy, Path]
     ) -> Optional[proxy.Proxy]:
         assert inputs == "/path/to/input.txt"
         assert outputs == "/path/to/output.txt"
