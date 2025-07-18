@@ -35,7 +35,7 @@ class Proxy:
     def file_ext(cls) -> Optional[str]:
         return None
 
-    def typed(self, *, astype: Type[Casted]) -> Casted:
+    def typed(self, *, astype: Type[Casted], append_ext=True) -> Casted:
         if self.file_ext() is not None:
             raise TypeError(
                 f"Cannot add type to proxy with existing type {self.file_ext()}"
@@ -43,7 +43,20 @@ class Proxy:
 
         assert issubclass(astype, Proxy)
 
-        new_proxy = astype(self.path, owned=self.owned, role=self.role)
+        new_ext = astype.file_ext()
+        assert isinstance(new_ext, str)
+
+        new_path = (
+            self.path.with_name(f"{self.path.name}{new_ext}")
+            if append_ext
+            else self.path
+        )
+
+        new_proxy = astype(
+            new_path,
+            owned=self.owned,
+            role=self.role,
+        )
         self.owned = False  # Transfer ownership here; # TODO: More robust system to manage ownership
 
         return new_proxy
