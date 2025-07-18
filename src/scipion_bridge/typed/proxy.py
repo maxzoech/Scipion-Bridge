@@ -114,7 +114,7 @@ def proxify(f):
 T = TypeVar("T")
 
 
-class Out:
+class Output:
     def __init__(self, dtype: Type[T]) -> None:
         assert issubclass(dtype, Proxy)
         self.dtype = dtype
@@ -133,7 +133,7 @@ def resolve_proxy_to_file_location(value: Proxy) -> FileLocation:
 @resolve.resolver
 @inject
 def resolve_output_to_proxy(
-    value: Out,
+    value: Output,
     temp_file_provider: TemporaryFilesProvider = Provide[Container.temp_file_provider],
 ) -> Proxy:
 

@@ -3,7 +3,7 @@ from pathlib import Path
 from functools import partial
 
 from scipion_bridge.typed import proxy, resolve
-from scipion_bridge.typed.proxy import Proxy, ProxyParam, Out
+from scipion_bridge.typed.proxy import Proxy, ProxyParam, Output
 from scipion_bridge.utils.environment.container import Container
 from scipion_bridge.utils.environment import configure_default_env
 
@@ -42,7 +42,7 @@ def test_resolve_proxy_output():
     temp_file_mock = TempFileMock()
 
     with container.temp_file_provider.override(temp_file_mock):
-        p = resolve.resolve(Out(Volume), astype=Proxy)
+        p = resolve.resolve(Output(Volume), astype=Proxy)
         assert str(p.path) == "/tmp/temp_file_0.vol"
 
         del p
@@ -68,12 +68,35 @@ def test_resolve_proxy():
     assert out is None
 
 
+def test_resolve_proxy_multi_output():
+
+    @proxy.proxify
+    def foo(
+        output_1: resolve.Resolve[Proxy, Output] = Output(Volume),
+        output_2: resolve.Resolve[Proxy, Output] = Output(Volume),
+    ):
+        pass
+
+    container = Container()
+    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+
+    temp_file_mock = TempFileMock()
+    with container.temp_file_provider.override(temp_file_mock):
+        output: Tuple[Proxy, Proxy] = foo()  # type: ignore
+
+        assert str(output[0].path) == "/tmp/temp_file_0.vol"
+        assert str(output[1].path) == "/tmp/temp_file_1.vol"
+
+
+
+
+
 def test_proxify_with_params():
 
     @proxy.proxify
     def foo(
         inputs: ProxyParam,
-        outputs: resolve.Resolve[Proxy, Out] = Out(Volume),
+        outputs: resolve.Resolve[Proxy, Output] = Output(Volume),
         bar: Optional[Tuple] = None,
         value=None,
     ):
@@ -95,7 +118,3 @@ def test_proxify_with_params():
         assert str(out.path) == "/tmp/temp_file_0.vol"
 
         del out
-
-
-if __name__ == "__main__":
-    test_proxify_with_params()

@@ -1,7 +1,8 @@
 from collections import OrderedDict
+from typing import Iterable, Mapping
 
 
-def extract_func_params(args, kwargs, params):
+def extract_func_params(args: Iterable, kwargs: Mapping, params):
     defaults = {
         k: param for k, param in params.items() if param.default is not param.empty
     }
