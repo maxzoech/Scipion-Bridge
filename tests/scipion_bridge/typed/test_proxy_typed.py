@@ -1,4 +1,5 @@
 import os
+import warnings
 from pathlib import Path
 from functools import partial
 
@@ -123,6 +124,35 @@ def test_nested_proxies():
 
         with open(output.path) as f:
             assert f.read() == "Write from func 1"
+
+
+def test_return_value_warning():
+
+    @proxify
+    def foo(output: resolve.Resolve[str, Output]):
+        del output
+        return 42
+
+    @proxify
+    def func_1(output_path: resolve.Resolve[Proxy, Output]):
+        pass
+
+    @proxify
+    def func_2():
+        return func_1(Output(TextFile))
+
+    container = Container()
+    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+
+    temp_file_mock = TempFileMock()
+    with container.temp_file_provider.override(temp_file_mock):
+        with pytest.warns(UserWarning):
+            foo(Output(TextFile))
+
+        with warnings.catch_warnings(record=True) as w:
+            func_2()
+
+            assert len(w) == 0
 
 
 def test_proxify_with_params():
