@@ -11,17 +11,23 @@ from typing import (
     TypeVar,
     Generic,
     Callable,
+    Union,
     get_origin,
     get_args,
+    TYPE_CHECKING,
 )
 
 registry = {}
 
-T = TypeVar("T")
+Target = TypeVar("Target")
+Origin = TypeVar("Origin")
 
 
-class Resolve(Generic[T]):
-    pass  # Marker Type
+if TYPE_CHECKING:
+    Resolve = Union[Target, Origin]
+else:
+    class Resolve(Generic[Target, Origin]):
+        pass  # Marker Type
 
 
 def resolver(f):
@@ -37,7 +43,7 @@ def resolver(f):
     return f
 
 
-def resolve(value: Any, *, astype: Type[T]) -> T:
+def resolve(value: Any, *, astype: Type[Target]) -> Target:
 
     out_dtype = astype
     for in_dtype in value.__class__.__mro__:
@@ -63,7 +69,7 @@ def resolve_params(f: Callable):
     def _resolve_arg(arg: tuple[inspect.Parameter, Any]):
         param, value = arg
         if param.annotation is not None and get_origin(param.annotation) == Resolve:
-            (target,) = get_args(param.annotation)
+            target = get_args(param.annotation)[0]
             value = resolve(value, astype=target)
 
         return param, value

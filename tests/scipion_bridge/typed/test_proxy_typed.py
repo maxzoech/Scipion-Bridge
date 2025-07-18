@@ -73,7 +73,7 @@ def test_proxify_with_params():
     @proxy.proxify
     def foo(
         inputs: ProxyParam,
-        outputs: resolve.Resolve[Proxy] = Out(Volume),
+        outputs: resolve.Resolve[Proxy, Out] = Out(Volume),
         bar: Optional[Tuple] = None,
         value=None,
     ):
