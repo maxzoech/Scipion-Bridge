@@ -1,4 +1,4 @@
-import functools
+from functools import wraps
 import inspect
 
 from ..func_params import extract_func_params
@@ -58,12 +58,6 @@ def resolve(value: Any, *, astype: Type[T]) -> T:
 
 def resolve_params(f: Callable):
 
-    params_to_resolve = {
-        k: get_args(v)[0]
-        for k, v in f.__annotations__.items()
-        if get_origin(v) == Resolve
-    }
-
     signature = inspect.signature(f)
 
     def _resolve_arg(arg: tuple[inspect.Parameter, Any]):
@@ -74,6 +68,7 @@ def resolve_params(f: Callable):
 
         return param, value
 
+    @wraps(f)
     def wrapper(*args, **kwargs):
         func_params = extract_func_params(args, kwargs, signature.parameters)
 

@@ -3,13 +3,13 @@ from pathlib import Path
 from functools import partial
 
 from scipion_bridge.typed import proxy, resolve
-from scipion_bridge.typed.proxy import Proxy, Out
+from scipion_bridge.typed.proxy import Proxy, ProxyParam, Out
 from scipion_bridge.utils.environment.container import Container
 from scipion_bridge.utils.environment import configure_default_env
 
 import pytest
 from pytest_mock import MockerFixture
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 
 class TempFileMock:
@@ -25,28 +25,6 @@ class TempFileMock:
 
     def delete(self, path: os.PathLike):
         pass
-
-
-def test_resolve_proxy():
-
-    @proxy.proxify
-    def foo(
-        inputs: Union[proxy.Proxy, Path], outputs: Union[proxy.Proxy, Path]
-    ) -> Optional[proxy.Proxy]:
-        assert inputs == "/path/to/input.txt"
-        assert outputs == "/path/to/output.txt"
-
-    input_proxy = proxy.Proxy(Path("/path/to/input.txt"), role=proxy.Proxy.Role.INPUT)
-    output_proxy = proxy.Proxy(
-        Path("/path/to/output.txt"), role=proxy.Proxy.Role.OUTPUT
-    )
-
-    out = foo(input_proxy, output_proxy)
-    assert out is not None
-    assert str(out.path) == "/path/to/output.txt"
-
-    out = foo(Path("/path/to/input.txt"), Path("/path/to/output.txt"))
-    assert out is None
 
 
 class Volume(Proxy):
@@ -70,5 +48,54 @@ def test_resolve_proxy_output():
         del p
 
 
+def test_resolve_proxy():
+
+    @proxy.proxify
+    def foo(inputs: ProxyParam, outputs: ProxyParam) -> Optional[proxy.Proxy]:
+        assert inputs == "/path/to/input.txt"
+        assert outputs == "/path/to/output.txt"
+
+    input_proxy = proxy.Proxy(Path("/path/to/input.txt"), role=proxy.Proxy.Role.INPUT)
+    output_proxy = proxy.Proxy(
+        Path("/path/to/output.txt"), role=proxy.Proxy.Role.OUTPUT
+    )
+
+    out = foo(input_proxy, output_proxy)
+    assert out is not None
+    assert str(out.path) == "/path/to/output.txt"
+
+    out = foo(Path("/path/to/input.txt"), Path("/path/to/output.txt"))
+    assert out is None
+
+
+def test_proxify_with_params():
+
+    @proxy.proxify
+    def foo(
+        inputs: ProxyParam,
+        outputs: resolve.Resolve[Proxy] = Out(Volume),
+        bar: Optional[Tuple] = None,
+        value=None,
+    ):
+
+        assert inputs == "/path/to/inputs.txt"
+        assert outputs == "/tmp/temp_file_0.vol"
+        assert bar == "1 2 3"
+        assert value == "42"
+
+    container = Container()
+    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+
+    temp_file_mock = TempFileMock()
+
+    with container.temp_file_provider.override(temp_file_mock):
+        out = foo(Path("/path/to/inputs.txt"), bar=(1, 2, 3), value=42)
+
+        assert out is not None
+        assert str(out.path) == "/tmp/temp_file_0.vol"
+
+        del out
+
+
 if __name__ == "__main__":
-    test_resolve_proxy_output()
+    test_proxify_with_params()
