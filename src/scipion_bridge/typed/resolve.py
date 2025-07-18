@@ -1,9 +1,27 @@
 import functools
-from typing import NewType, Type, Any, Optional, TypeVar
+import inspect
+
+from ..func_params import extract_func_params
+
+from typing import (
+    NewType,
+    Type,
+    Any,
+    Optional,
+    TypeVar,
+    Generic,
+    Callable,
+    get_origin,
+    get_args,
+)
 
 registry = {}
 
 T = TypeVar("T")
+
+
+class Resolve(Generic[T]):
+    pass  # Marker Type
 
 
 def resolver(f):
@@ -36,3 +54,40 @@ def resolve(value: Any, *, astype: Type[T]) -> T:
         raise TypeError(
             f"Instance of {value.__class__} can not be resolved as {astype}"
         )
+
+
+def resolve_params(f: Callable):
+
+    params_to_resolve = {
+        k: get_args(v)[0]
+        for k, v in f.__annotations__.items()
+        if get_origin(v) == Resolve
+    }
+
+    signature = inspect.signature(f)
+
+    def _resolve_arg(arg: tuple[inspect.Parameter, Any]):
+        param, value = arg
+        if param.annotation is not None and get_origin(param.annotation) == Resolve:
+            (target,) = get_args(param.annotation)
+            value = resolve(value, astype=target)
+
+        return param, value
+
+    def wrapper(*args, **kwargs):
+        func_params = extract_func_params(args, kwargs, signature.parameters)
+
+        args = list(func_params.items())[: len(args)]
+        kwargs = list(func_params.items())[len(args) :]
+
+        args = [_resolve_arg(a) for a in args]
+        args = [v for _, v in args]
+
+        kwargs = [_resolve_arg(a) for a in kwargs]
+        kwargs = {k.name: v for k, v in kwargs}
+
+        print(args, kwargs)
+
+        return f(*args, **kwargs)
+
+    return wrapper
