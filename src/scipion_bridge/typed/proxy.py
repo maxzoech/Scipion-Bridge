@@ -17,6 +17,8 @@ from typing_extensions import TypeAlias
 
 FileLocation: TypeAlias = str
 
+Casted = TypeVar("Casted")
+
 
 class Proxy:
     class Role(Enum):
@@ -32,6 +34,19 @@ class Proxy:
     @classmethod
     def file_ext(cls) -> Optional[str]:
         return None
+
+    def typed(self, *, astype: Type[Casted]) -> Casted:
+        if self.file_ext() is not None:
+            raise TypeError(
+                f"Cannot add type to proxy with existing type {self.file_ext()}"
+            )
+
+        assert issubclass(astype, Proxy)
+
+        new_proxy = astype(self.path, owned=self.owned, role=self.role)
+        self.owned = False  # Transfer ownership here; # TODO: More robust system to manage ownership
+
+        return new_proxy
 
     @inject
     def __del__(
@@ -144,6 +159,8 @@ def resolve_output_to_proxy(
 ) -> Proxy:
 
     file_ext = value.dtype.file_ext()
+    file_ext = file_ext if file_ext is not None else ""
+
     temp_file = temp_file_provider.new_temporary_file(file_ext)
 
     new_proxy = value.dtype(Path(temp_file), owned=True, role=Proxy.Role.OUTPUT)
