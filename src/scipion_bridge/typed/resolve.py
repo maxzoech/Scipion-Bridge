@@ -26,6 +26,7 @@ Origin = TypeVar("Origin")
 if TYPE_CHECKING:
     Resolve = Union[Target, Origin]
 else:
+
     class Resolve(Generic[Target, Origin]):
         pass  # Marker Type
 
@@ -86,8 +87,6 @@ def resolve_params(f: Callable):
 
         kwargs = [_resolve_arg(a) for a in kwargs]
         kwargs = {k.name: v for k, v in kwargs}
-
-        print(args, kwargs)
 
         return f(*args, **kwargs)
 

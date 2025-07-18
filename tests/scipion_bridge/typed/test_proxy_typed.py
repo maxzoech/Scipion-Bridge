@@ -3,6 +3,7 @@ from pathlib import Path
 from functools import partial
 
 from scipion_bridge.typed import proxy, resolve
+from scipion_bridge.typed.proxy import proxify
 from scipion_bridge.typed.proxy import Proxy, ProxyParam, Output
 from scipion_bridge.utils.environment.container import Container
 from scipion_bridge.utils.environment import configure_default_env
@@ -50,7 +51,7 @@ def test_resolve_proxy_output():
 
 def test_resolve_proxy():
 
-    @proxy.proxify
+    @proxify
     def foo(inputs: ProxyParam, outputs: ProxyParam) -> Optional[proxy.Proxy]:
         assert inputs == "/path/to/input.txt"
         assert outputs == "/path/to/output.txt"
@@ -70,7 +71,7 @@ def test_resolve_proxy():
 
 def test_resolve_proxy_multi_output():
 
-    @proxy.proxify
+    @proxify
     def foo(
         output_1: resolve.Resolve[Proxy, Output] = Output(Volume),
         output_2: resolve.Resolve[Proxy, Output] = Output(Volume),
@@ -88,12 +89,45 @@ def test_resolve_proxy_multi_output():
         assert str(output[1].path) == "/tmp/temp_file_1.vol"
 
 
+class TextFile(Proxy):
 
+    @classmethod
+    def file_ext(cls) -> Optional[str]:
+        return ".txt"
+
+
+@pytest.mark.skip(reason="Implicitly resolving types not implemented yet")
+def test_nested_proxies():
+
+    @proxify
+    def func_1(output_path: resolve.Resolve[Proxy, Output]):
+        # assert isinstance(output_path, str)
+        assert isinstance(output_path, str)
+
+        with open(output_path, "w+") as f:
+
+            f.write("Write from func 1")
+
+    @proxify
+    def func_2(output_path: resolve.Resolve[Proxy, Output]):
+        return func_1(output_path)
+
+    container = Container()
+    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+
+    temp_file_mock = TempFileMock()
+    with container.temp_file_provider.override(temp_file_mock):
+        output = func_2(Output(TextFile))
+        assert isinstance(output, Proxy)
+        assert str(output.path) == "/tmp/temp_file_0.txt"
+
+        with open(output.path) as f:
+            assert f.read() == "Write from func 1"
 
 
 def test_proxify_with_params():
 
-    @proxy.proxify
+    @proxify
     def foo(
         inputs: ProxyParam,
         outputs: resolve.Resolve[Proxy, Output] = Output(Volume),
@@ -118,3 +152,7 @@ def test_proxify_with_params():
         assert str(out.path) == "/tmp/temp_file_0.vol"
 
         del out
+
+
+if __name__ == "__main__":
+    test_nested_proxies()

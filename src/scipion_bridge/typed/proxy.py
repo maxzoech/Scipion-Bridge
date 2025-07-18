@@ -79,7 +79,13 @@ def mange_return_values(f):
             if v.role == Proxy.Role.OUTPUT
         ]
 
-        if not (out_val == 0 or out_val == None):
+        try:
+            outputs = out_val if isinstance(out_val, tuple) else tuple([out_val])
+            outputs_are_proxies = all(isinstance(o, Proxy) for o in outputs)
+        except TypeError as e:
+            outputs_are_proxies = False
+
+        if not (out_val == 0 or out_val == None or outputs_are_proxies):
             warnings.warn(
                 f"Wrapped function returns non-zero value; the value '{out_val}' will be discarded",
                 UserWarning,
