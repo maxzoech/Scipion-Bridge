@@ -5,6 +5,7 @@ from ..func_params import extract_func_params
 
 from typing import (
     NewType,
+    Tuple,
     Type,
     Any,
     Optional,
@@ -67,7 +68,7 @@ def resolve_params(f: Callable):
 
     signature = inspect.signature(f)
 
-    def _resolve_arg(arg: tuple[inspect.Parameter, Any]):
+    def _resolve_arg(arg: Tuple[inspect.Parameter, Any]):
         param, value = arg
         if param.annotation is not None and get_origin(param.annotation) == Resolve:
             target = get_args(param.annotation)[0]
