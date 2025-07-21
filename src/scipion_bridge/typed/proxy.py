@@ -11,13 +11,14 @@ from ..utils.environment.container import Container
 from ..utils.environment.temp_files import TemporaryFilesProvider
 from ..func_params import extract_func_params
 
-from . import resolve
+from .resolve import registry, resolve_params, resolver
 from typing import Optional, TypeVar, Generic, Type, Union
 from typing_extensions import TypeAlias
 
 FileLocation: TypeAlias = str
 
 Casted = TypeVar("Casted")
+T = TypeVar("T")
 
 
 class Proxy:
@@ -75,6 +76,15 @@ class Proxy:
         return f"<{self.__class__.__name__} for {self.path} ({is_owned})>"
 
 
+class Output:
+    def __init__(self, dtype: Type[T]) -> None:
+        assert issubclass(dtype, Proxy)
+        self.dtype = dtype
+
+
+ProxyParam: TypeAlias = Union[Proxy, Path, Output]
+
+
 def mange_return_values(f):
 
     signature = inspect.signature(f)
@@ -94,9 +104,9 @@ def mange_return_values(f):
             k: isinstance(v.default, Output) for k, v in signature.parameters.items()
         }
 
-        resolved_args = [str(resolve.resolve(a, astype=FileLocation)) for a in args]
+        resolved_args = [str(registry.resolve(a, astype=FileLocation)) for a in args]
         resolved_kwargs = {
-            k: str(resolve.resolve(v, astype=FileLocation)) for k, v in kwargs.items()
+            k: str(registry.resolve(v, astype=FileLocation)) for k, v in kwargs.items()
         }
 
         out_val = f(*resolved_args, **resolved_kwargs)
@@ -133,7 +143,7 @@ def mange_return_values(f):
 
 def proxify(f):
 
-    @resolve.resolve_params
+    @resolve_params
     @mange_return_values
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -142,29 +152,17 @@ def proxify(f):
     return wrapper
 
 
-T = TypeVar("T")
-
-
-class Output:
-    def __init__(self, dtype: Type[T]) -> None:
-        assert issubclass(dtype, Proxy)
-        self.dtype = dtype
-
-
-ProxyParam: TypeAlias = Union[Proxy, Path, Output]
-
-
-@resolve.resolver
+@resolver
 def resolve_path_to_file_location(value: Path) -> FileLocation:
     return FileLocation(value)
 
 
-@resolve.resolver
+@resolver
 def resolve_proxy_to_file_location(value: Proxy) -> FileLocation:
-    return resolve.resolve(value.path, astype=FileLocation)
+    return registry.resolve(value.path, astype=FileLocation)
 
 
-@resolve.resolver
+@resolver
 @inject
 def resolve_output_to_proxy(
     value: Output,

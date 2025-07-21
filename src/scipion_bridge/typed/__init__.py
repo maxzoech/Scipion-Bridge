@@ -1,2 +1,2 @@
-from . import proxy
+from . import resolve
 from . import common

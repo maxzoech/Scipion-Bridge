@@ -20,7 +20,6 @@ from typing import (
 )
 
 ResolveStep = namedtuple("ResolveStep", ("func", "description"))
-registry = {}
 
 Target = TypeVar("Target")
 Origin = TypeVar("Origin")
@@ -51,6 +50,9 @@ class Registry:
 
         # Add edges to downcast data
         for weight, dtype in enumerate(origin.__mro__):
+            if origin == dtype:
+                continue
+
             self.graph.add_edge(origin, dtype, resolver=_passthrough, weight=weight)
 
     def find_resolve_func(self, origin: Type[Origin], target: Type[Target]):
@@ -63,6 +65,16 @@ class Registry:
 
         if origin == target:
             return _passthrough
+
+        # Find the first subclass that is in the graph
+        for dtype in origin.__mro__:
+            if dtype in self.graph:
+                origin = dtype
+                break
+        else:
+            raise TypeError(
+                f"'{origin.__qualname__}' could not be resolved as '{target.__qualname__}'"
+            )
 
         try:
             path = nx.shortest_path(self.graph, origin, target, weight="weight")
@@ -121,26 +133,8 @@ class Registry:
         plt.tight_layout()
         plt.show()
 
-    # def find_resolvers(self, origin: Type[Origin], target: Type[Origin]):
 
-
-def resolve(value: Any, *, astype: Type[Target]) -> Target:
-
-    out_dtype = astype
-    for in_dtype in value.__class__.__mro__:
-
-        key = (in_dtype, out_dtype)
-        try:
-            resolver_fn = registry[key]
-        except:
-            continue
-
-        resolved = resolver_fn(value)
-        return resolved
-    else:
-        raise TypeError(
-            f"Instance of {value.__class__} can not be resolved as {astype}"
-        )
+registry = Registry()
 
 
 def resolver(f):
@@ -149,9 +143,7 @@ def resolver(f):
     in_dtype = f.__annotations__["value"]
     out_dtype = f.__annotations__["return"]
 
-    key = (in_dtype, out_dtype)
-    if not key in registry:
-        registry[key] = f
+    registry.add_resolver(in_dtype, out_dtype, f)
 
     return f
 
@@ -164,7 +156,7 @@ def resolve_params(f: Callable):
         param, value = arg
         if param.annotation is not None and get_origin(param.annotation) == Resolve:
             target = get_args(param.annotation)[0]
-            value = resolve(value, astype=target)
+            value = registry.resolve(value, astype=target)
 
         return param, value
 
