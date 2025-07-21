@@ -34,6 +34,10 @@ else:
         pass  # Marker Type
 
 
+def _passthrough(x):
+    return x
+
+
 class Registry:
 
     def __init__(self) -> None:
@@ -42,8 +46,6 @@ class Registry:
     def add_resolver(
         self, origin: Type[Origin], target: Type[Origin], resolver: Callable
     ):
-        def _passthrough(x):
-            return x
 
         self.graph.add_edge(origin, target, resolver=resolver, weight=0)
 
@@ -58,6 +60,9 @@ class Registry:
                 data["resolver"],
                 f"{u.__qualname__} -> {v.__qualname__}: {data["resolver"].__qualname__}",
             )
+
+        if origin == target:
+            return _passthrough
 
         try:
             path = nx.shortest_path(self.graph, origin, target, weight="weight")
@@ -91,6 +96,9 @@ class Registry:
             return x
 
         return resolver_fn
+
+    def resolve(self, value, astype: Type[Target]) -> Target:
+        return self.find_resolve_func(type(value), astype)(value)
 
     def _plot_graph(self):
         import networkx as nx
