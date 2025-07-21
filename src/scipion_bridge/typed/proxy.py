@@ -81,17 +81,24 @@ class Proxy:
         return f"<{self.__class__.__name__} for {self.path} ({is_owned})>"
 
 
-ProxyParam: TypeAlias = Union[Proxy, Path]
-
-
 def mange_return_values(f):
 
     signature = inspect.signature(f)
+
+    def _wrap_as_untyped_proxy(value):
+        if isinstance(value, Proxy):
+            return value
+        else:
+            assert isinstance(value, os.PathLike)
+            return Proxy(Path(value), role=Proxy.Role.INPUT, owned=False)
 
     @wraps(f)
     def wrapped(*args, **kwargs):
 
         func_args = extract_func_params(args, kwargs, signature.parameters)
+        should_return = {
+            k: isinstance(v.default, Output) for k, v in signature.parameters.items()
+        }
 
         resolved_args = [str(resolve.resolve(a, astype=FileLocation)) for a in args]
         resolved_kwargs = {
@@ -100,11 +107,12 @@ def mange_return_values(f):
 
         out_val = f(*resolved_args, **resolved_kwargs)
 
+        # TODO: Move wrapping into untyped proxy to type resolution system
         return_vals = [
-            v
-            for v in func_args.values()
-            if isinstance(v, Proxy)
-            if v.role == Proxy.Role.OUTPUT
+            _wrap_as_untyped_proxy(v)
+            for k, v in func_args.items()
+            if should_return[k.name]
+            # if isinstance(v, Proxy)
         ]
 
         try:
@@ -118,11 +126,6 @@ def mange_return_values(f):
                 f"Wrapped function returns non-zero value; the value '{out_val}' will be discarded",
                 UserWarning,
             )
-
-        for v in return_vals:
-            v.role = (
-                Proxy.Role.INPUT
-            )  # Input the proxy role here because it will be the input to the next function
 
         if len(return_vals) == 0:
             return out_val
@@ -152,6 +155,9 @@ class Output:
     def __init__(self, dtype: Type[T]) -> None:
         assert issubclass(dtype, Proxy)
         self.dtype = dtype
+
+
+ProxyParam: TypeAlias = Union[Proxy, Path, Output]
 
 
 @resolve.resolver

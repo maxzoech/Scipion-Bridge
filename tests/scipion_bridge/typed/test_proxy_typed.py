@@ -53,7 +53,9 @@ def test_resolve_proxy_output():
 def test_resolve_proxy():
 
     @proxify
-    def foo(inputs: ProxyParam, outputs: ProxyParam) -> Optional[proxy.Proxy]:
+    def foo(
+        inputs: ProxyParam, outputs: ProxyParam = Output(TextFile)
+    ) -> Optional[proxy.Proxy]:
         assert inputs == "/path/to/input.txt"
         assert outputs == "/path/to/output.txt"
 
@@ -67,7 +69,9 @@ def test_resolve_proxy():
     assert str(out.path) == "/path/to/output.txt"
 
     out = foo(Path("/path/to/input.txt"), Path("/path/to/output.txt"))
-    assert out is None
+    assert isinstance(out, Proxy)
+    assert out.path == Path("/path/to/output.txt")
+    assert out.owned == False
 
 
 def test_resolve_proxy_multi_output():
