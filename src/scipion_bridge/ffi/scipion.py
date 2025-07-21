@@ -67,23 +67,23 @@ def xmipp_volume_from_pdb(
 #     return raw_args[1:] + [[out_path]]
 
 
-# @proxify
-# @partial(
-#     xmipp_func,
-#     args_map={
-#         "embdb_map": "i1",
-#         "volume": "i2",
-#     },
-#     args_validation={
-#         "embdb_map": "(.+)\.map",
-#         "volume": "(.+)\.vol",
-#     },
-#     # postprocess_fn=postprocess_volume_align_args,
-# )
-# def xmipp_volume_align(
-#     *, embdb_map: str, volume: str, local: bool, apply=OutputInfo("vol")
-# ):
-#     pass
+@proxify
+@partial(
+    xmipp_func,
+    args_map={
+        "embdb_map": "i1",
+        "volume": "i2",
+    },
+    # postprocess_fn=postprocess_volume_align_args,
+)
+def xmipp_volume_align(
+    *,
+    embdb_map: str,
+    volume: str,
+    local: bool,
+    apply: Resolve[Proxy, Output] = Output(SpiderFile)
+):
+    pass
 
 
 # @proxify

@@ -21,14 +21,9 @@ Casted = TypeVar("Casted")
 
 
 class Proxy:
-    class Role(Enum):
-        INPUT = 0
-        OUTPUT = 1
 
-    def __init__(self, path: os.PathLike, role: Role, owned=False):
+    def __init__(self, path: os.PathLike, owned=False):
         self.path = Path(path)
-        self.role = role
-
         self.owned = owned
 
     @classmethod
@@ -55,7 +50,6 @@ class Proxy:
         new_proxy = astype(
             new_path,
             owned=self.owned,
-            role=self.role,
         )
         self.owned = False  # Transfer ownership here; # TODO: More robust system to manage ownership
 
@@ -90,7 +84,7 @@ def mange_return_values(f):
             return value
         else:
             assert isinstance(value, os.PathLike)
-            return Proxy(Path(value), role=Proxy.Role.INPUT, owned=False)
+            return Proxy(Path(value), owned=False)
 
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -182,7 +176,7 @@ def resolve_output_to_proxy(
 
     temp_file = temp_file_provider.new_temporary_file(file_ext)
 
-    new_proxy = value.dtype(Path(temp_file), owned=True, role=Proxy.Role.OUTPUT)
+    new_proxy = value.dtype(Path(temp_file), owned=True)
 
     assert isinstance(new_proxy, Proxy)
     return new_proxy

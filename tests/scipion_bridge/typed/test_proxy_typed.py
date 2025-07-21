@@ -59,10 +59,8 @@ def test_resolve_proxy():
         assert inputs == "/path/to/input.txt"
         assert outputs == "/path/to/output.txt"
 
-    input_proxy = proxy.Proxy(Path("/path/to/input.txt"), role=proxy.Proxy.Role.INPUT)
-    output_proxy = proxy.Proxy(
-        Path("/path/to/output.txt"), role=proxy.Proxy.Role.OUTPUT
-    )
+    input_proxy = proxy.Proxy(Path("/path/to/input.txt"))
+    output_proxy = proxy.Proxy(Path("/path/to/output.txt"))
 
     out = foo(input_proxy, output_proxy)
     assert out is not None
