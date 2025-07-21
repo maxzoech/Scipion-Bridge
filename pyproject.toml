@@ -10,6 +10,7 @@ packages = [{ include = "scipion_bridge", from = "src" }]
 python = ">=3.8"
 dependency-injector = ">=4.48.1,<5.0.0"
 autopep8 = ">=2.3.0,<3.0.0"
+networkx = ">=3.5.0,<4.0.0"
 
 [tool.poetry.group.test]
 optional = true
