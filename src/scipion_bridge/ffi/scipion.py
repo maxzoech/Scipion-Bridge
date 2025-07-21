@@ -2,16 +2,24 @@ from functools import partial
 
 from ..external_call import foreign_function, Domain
 from ..typed.proxy import proxify, Proxy, Output
+from ..typed.array import ArrayConvertable
 from ..typed.resolve import Resolve
 
 xmipp_func = partial(foreign_function, domain=Domain("XMIPP", ["scipion", "run"]))
 
 
-class SpiderFile(Proxy):
+class SpiderFile(Proxy, ArrayConvertable):
 
     @classmethod
     def file_ext(cls):
         return ".vol"
+
+    def to_numpy(self):
+        import xmippLib  # type: ignore
+        import numpy as np
+
+        volume = xmippLib.Image(str(self.path))
+        return np.array(volume.getData().astype(np.float32), copy=True)
 
 
 # @proxify
