@@ -55,7 +55,6 @@ def test_resolved_func():
     foo(10, number=42.0, value="Test")
 
 
-@pytest.mark.skip(reason="Resolving classes with their identity not yet implemented")
 def test_resolve_passthrough():
     @resolve.resolve_params
     def foo(bar: resolve.Resolve[int, float]):

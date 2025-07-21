@@ -84,7 +84,6 @@ def test_resolve_proxy():
     assert resolved_path == "/path/to/output.txt"
 
 
-@pytest.mark.skip("Fix finding subclass first")
 def test_resolve_proxified():
 
     @proxify
@@ -107,7 +106,6 @@ def test_resolve_proxified():
     assert out.owned == False
 
 
-@pytest.mark.skip("Fix finding subclass first")
 def test_resolve_proxy_multi_output():
 
     @proxify
@@ -128,12 +126,13 @@ def test_resolve_proxy_multi_output():
         assert str(output[1].path) == "/tmp/temp_file_1.vol"
 
 
-@pytest.mark.skip(reason="Implicitly resolving types not implemented yet")
+@pytest.mark.skip(
+    reason="Unify @proxify and @resolve_params for this work; needs to resolve directly from Output -> str"
+)
 def test_nested_proxies():
 
     @proxify
     def func_1(output_path: Resolve[Proxy, Output]):
-        # assert isinstance(output_path, str)
         assert isinstance(output_path, str)
 
         with open(output_path, "w+") as f:
@@ -157,7 +156,6 @@ def test_nested_proxies():
             assert f.read() == "Write from func 1"
 
 
-@pytest.mark.skip("Fix finding subclass first")
 def test_return_value_warning():
 
     @proxify
@@ -187,7 +185,7 @@ def test_return_value_warning():
             assert len(w) == 0
 
 
-@pytest.mark.skip("Fix finding subclass first")
+# @pytest.mark.skip("Fix finding subclass first")
 def test_proxify_with_params():
 
     @proxify
@@ -207,8 +205,6 @@ def test_proxify_with_params():
     container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
 
     temp_file_mock = TempFileMock()
-
-    registry._plot_graph()
 
     with container.temp_file_provider.override(temp_file_mock):
         out = foo(Path("/path/to/inputs.txt"), bar=(1, 2, 3), value=42)
