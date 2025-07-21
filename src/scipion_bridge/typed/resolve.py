@@ -58,9 +58,11 @@ class Registry:
     def find_resolve_func(self, origin: Type[Origin], target: Type[Target]):
         def _make_step(edge, data):
             u, v = edge
+            fn = data["resolver"]
+
             return ResolveStep(
-                data["resolver"],
-                f"{u.__qualname__} -> {v.__qualname__}: {data["resolver"].__qualname__}",
+                fn,
+                f"{u.__qualname__} -> {v.__qualname__}: {fn.__qualname__}",
             )
 
         if origin == target:
