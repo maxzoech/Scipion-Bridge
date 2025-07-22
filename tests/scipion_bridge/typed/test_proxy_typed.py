@@ -9,6 +9,7 @@ from scipion_bridge.typed.proxy import proxify
 from scipion_bridge.typed.proxy import Proxy, ProxyParam, Output
 from scipion_bridge.utils.environment.container import Container
 from scipion_bridge.utils.environment import configure_default_env
+from scipion_bridge.utils.arc import manager as arc_manager
 
 import pytest
 from pytest_mock import MockerFixture
@@ -35,6 +36,39 @@ class Volume(Proxy):
     @classmethod
     def file_ext(cls):
         return ".vol"
+
+
+def test_conversion_to_typed_proxy():
+
+    container = Container()
+    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+
+    temp_file_mock = TempFileMock()
+
+    with container.temp_file_provider.override(temp_file_mock):
+
+        untyped = Proxy(Path("/path/to/proxy"), managed=True)
+        assert arc_manager.get_count(Path("/path/to/proxy")) == 1
+
+        typed = untyped.typed(astype=TextFile, copy_data=False)
+        assert str(typed.path) == "/path/to/proxy.txt"
+
+        assert arc_manager.get_count(Path("/path/to/proxy")) == 1
+        assert arc_manager.get_count(Path("/path/to/proxy.txt")) == 1
+
+        del typed, untyped
+
+    proxy_obj = Proxy(Path("/tmp/test_file"), managed=True)
+    with open(proxy_obj.path, mode="w") as f:
+        f.write("Hello World")
+
+    proxy_obj = proxy_obj.typed(astype=TextFile)
+    assert arc_manager.is_tracked(Path("/tmp/test_file")) == False
+    assert arc_manager.is_tracked(Path("/tmp/test_file.txt")) == True
+
+    with open(proxy_obj.path, mode="r") as f:
+        assert f.read() == "Hello World"
+
 
 
 def test_resolve_proxy_output():
@@ -64,7 +98,7 @@ def test_resolve_proxy():
 
     def _resolve_output_to_proxy(output: Output):
         ext = str(output.dtype.file_ext())
-        return output.dtype(Path("/path/to/output" + ext), owned=False)
+        return output.dtype(Path("/path/to/output" + ext), managed=False)
 
     registry = Registry()
     registry.add_resolver(Path, str, lambda x: str(x))
@@ -103,7 +137,7 @@ def test_resolve_proxified():
     out = foo(Path("/path/to/input.txt"), Path("/path/to/output.txt"))
     assert isinstance(out, Proxy)
     assert out.path == Path("/path/to/output.txt")
-    assert out.owned == False
+    assert out.managed == False
 
 
 def test_resolve_proxy_multi_output():
@@ -159,8 +193,7 @@ def test_nested_proxies():
 def test_return_value_warning():
 
     @proxify
-    def foo(output: Resolve[str, Output]):
-        del output
+    def foo(output: Resolve[Proxy, Output] = Output(TextFile)):
         return 42
 
     @proxify
@@ -185,7 +218,6 @@ def test_return_value_warning():
             assert len(w) == 0
 
 
-# @pytest.mark.skip("Fix finding subclass first")
 def test_proxify_with_params():
 
     @proxify
@@ -216,4 +248,4 @@ def test_proxify_with_params():
 
 
 if __name__ == "__main__":
-    test_resolve_proxy()
+    test_conversion_to_typed_proxy()

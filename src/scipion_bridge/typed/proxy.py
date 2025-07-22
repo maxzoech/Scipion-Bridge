@@ -5,10 +5,12 @@ import logging
 import warnings
 from enum import Enum
 from functools import partial, wraps
+import shutil
 
 from dependency_injector.wiring import Provide, inject
 from ..utils.environment.container import Container
 from ..utils.environment.temp_files import TemporaryFilesProvider
+from ..utils.arc import manager as arc_manager
 from ..func_params import extract_func_params
 
 from .resolve import registry, resolve_params, resolver
@@ -23,15 +25,18 @@ T = TypeVar("T")
 
 class Proxy:
 
-    def __init__(self, path: os.PathLike, owned=False):
+    def __init__(self, path: os.PathLike, managed=False):
         self.path = Path(path)
-        self.owned = owned
+        self.managed = managed
+
+        if self.managed == True:
+            arc_manager.add_reference(self.path)
 
     @classmethod
     def file_ext(cls) -> Optional[str]:
         return None
 
-    def typed(self, *, astype: Type[Casted], append_ext=True) -> Casted:
+    def typed(self, *, astype: Type[Casted], copy_data=True) -> Casted:
         if self.file_ext() is not None:
             raise TypeError(
                 f"Cannot add type to proxy with existing type {self.file_ext()}"
@@ -42,17 +47,14 @@ class Proxy:
         new_ext = astype.file_ext()
         assert isinstance(new_ext, str)
 
-        new_path = (
-            self.path.with_name(f"{self.path.name}{new_ext}")
-            if append_ext
-            else self.path
-        )
+        new_path = self.path.with_name(f"{self.path.name}{new_ext}")
+        if copy_data:
+            shutil.copy(str(self.path), str(new_path))
 
         new_proxy = astype(
             new_path,
-            owned=self.owned,
+            managed=self.managed,
         )
-        self.owned = False  # Transfer ownership here; # TODO: More robust system to manage ownership
 
         return new_proxy
 
@@ -65,14 +67,19 @@ class Proxy:
     ):
 
         try:
-            if self.owned == True:
-                temp_file_provider.delete(self.path)
-        except:
-            logging.warning(f"Failed to delete file at {self.path} for proxy")
+            if self.managed == True:
+                if arc_manager.get_count(self.path) == 1:
+                    temp_file_provider.delete(self.path)
+
+        except Exception as e:
+            logging.warning(f"Failed to delete file at {self.path}: {e}")
             pass  # Fail silently
 
+        if self.managed:
+            arc_manager.remove_reference(self.path)
+
     def __str__(self):
-        is_owned = "owned" if self.owned else "unowned"
+        is_owned = "managed" if self.managed else "unmanaged"
         return f"<{self.__class__.__name__} for {self.path} ({is_owned})>"
 
 
@@ -94,7 +101,7 @@ def mange_return_values(f):
             return value
         else:
             assert isinstance(value, os.PathLike)
-            return Proxy(Path(value), owned=False)
+            return Proxy(Path(value), managed=False)
 
     @wraps(f)
     def wrapped(*args, **kwargs):
@@ -174,7 +181,7 @@ def resolve_output_to_proxy(
 
     temp_file = temp_file_provider.new_temporary_file(file_ext)
 
-    new_proxy = value.dtype(Path(temp_file), owned=True)
+    new_proxy = value.dtype(Path(temp_file), managed=True)
 
     assert isinstance(new_proxy, Proxy)
     return new_proxy
