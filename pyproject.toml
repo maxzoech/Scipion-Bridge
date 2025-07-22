@@ -20,6 +20,7 @@ optional = true
 pytest = "^8.3.5"
 pytest-mock = "*"
 pytest-cov = "*"
+numpy = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0,<2.0.0"]
