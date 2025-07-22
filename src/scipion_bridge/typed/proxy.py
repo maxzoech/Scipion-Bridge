@@ -98,6 +98,8 @@ class Output:
         assert issubclass(dtype, Proxy)
         self.dtype = dtype
 
+        registry.add_resolver(Output, dtype, resolver=resolve_output_to_proxy)
+
 
 ProxyParam: TypeAlias = Union[Proxy, Path, Output]
 
@@ -159,17 +161,6 @@ def proxify(f):
     return wrapped
 
 
-# def proxify(f):
-
-#     # @resolve_params
-#     @mange_return_values
-#     @wraps(f)
-#     def wrapper(*args, **kwargs):
-#         return f(*args, **kwargs)
-
-#     return wrapper
-
-
 @resolver
 def resolve_path_to_func_param(value: Path) -> FuncParam:
     return FuncParam(str(value))
@@ -185,7 +176,6 @@ def resolve_proxy_to_func_param(value: Proxy) -> FuncParam:
     return FuncParam(str(value.path), type(value), managed_proxy=value.managed)
 
 
-@resolver
 @inject
 def resolve_output_to_proxy(
     value: Output,

@@ -46,14 +46,23 @@ class Registry:
         self, origin: Type[Origin], target: Type[Origin], resolver: Callable
     ):
 
+        if self.graph.has_edge(origin, target):
+            return
+
+        def _add_downcasts(subclass: Type):
+            for weight, dtype in enumerate(subclass.__mro__):
+                if origin == dtype:
+                    continue
+
+                self.graph.add_edge(
+                    subclass, dtype, resolver=_passthrough, weight=weight
+                )
+
         self.graph.add_edge(origin, target, resolver=resolver, weight=0)
 
         # Add edges to downcast data
-        for weight, dtype in enumerate(origin.__mro__):
-            if origin == dtype:
-                continue
-
-            self.graph.add_edge(origin, dtype, resolver=_passthrough, weight=weight)
+        _add_downcasts(origin)
+        _add_downcasts(target)
 
     def find_resolve_func(self, origin: Type[Origin], target: Type[Target]):
         def _make_step(edge, data):

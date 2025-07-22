@@ -4,7 +4,13 @@ from pathlib import Path
 from functools import partial
 
 from scipion_bridge.typed import proxy
-from scipion_bridge.typed.resolve import registry, Resolve, Registry
+from scipion_bridge.typed.resolve import (
+    registry,
+    Resolve,
+    Registry,
+    resolver,
+    resolve_params,
+)
 from scipion_bridge.typed.proxy import proxify
 from scipion_bridge.typed.proxy import Proxy, ProxyParam, Output
 from scipion_bridge.utils.environment.container import Container
@@ -13,7 +19,7 @@ from scipion_bridge.utils.arc import manager as arc_manager
 
 import pytest
 from pytest_mock import MockerFixture
-from typing import Optional, Union, Tuple
+from typing import Optional, Union, Tuple, Any
 
 
 class TempFileMock:
@@ -245,5 +251,50 @@ def test_proxify_with_params():
         del out
 
 
+def test_combine_proxify_and_resolve():
+    import numpy as np
+
+    class MyVolume(Proxy):
+
+        @classmethod
+        def file_ext(cls):
+            return ".custom"
+
+    class OtherVolume(Proxy):
+
+        @classmethod
+        def file_ext(cls):
+            return ".something"
+
+    @resolver
+    def resolve_numpy_to_my_volume2(value: np.ndarray) -> OtherVolume:
+        return OtherVolume(Path("/path/to/volume.something"), managed=True)
+
+    @resolver
+    def resolve_numpy_to_my_volume(value: np.ndarray) -> MyVolume:
+        return MyVolume(Path("/tmp/temp_file_0.custom"), managed=True)
+
+    @resolve_params
+    @proxify
+    def foo(inputs: Resolve[MyVolume, Any] = Output(MyVolume)):
+        assert inputs == "/tmp/temp_file_0.custom"
+
+    data = np.random.uniform(1.0, 1.0, size=[16, 16, 16])
+
+    container = Container()
+    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+
+    temp_file_mock = TempFileMock()
+
+    with container.temp_file_provider.override(temp_file_mock):
+        output_new = foo()
+        assert str(output_new.path) == "/tmp/temp_file_0.custom"
+
+        output_numpy = foo(data)
+        assert str(output_numpy.path) == "/tmp/temp_file_0.custom"
+
+        del output_new, output_numpy
+
+
 if __name__ == "__main__":
-    test_proxify_with_params()
+    test_combine_proxify_and_resolve()
