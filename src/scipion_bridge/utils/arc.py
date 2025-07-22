@@ -39,7 +39,7 @@ class FileReferenceCounter:
         else:
             return self.references[path]
 
-    def _print_reference_count(self):
+    def _print_reference_count(self):  # pragma: no cover
         from tabulate import tabulate
 
         print(tabulate(self.references.items(), headers=["Path", "Ref. Count"]))

@@ -17,10 +17,20 @@ from .resolve import registry, resolve_params, resolver
 from typing import Optional, TypeVar, Generic, Type, Union
 from typing_extensions import TypeAlias
 
-FileLocation: TypeAlias = str
-
 Casted = TypeVar("Casted")
 T = TypeVar("T")
+
+
+class FuncParam:
+    def __init__(
+        self, str_rep: str, dtype: Optional[Type[T]] = None, managed_proxy=False
+    ) -> None:
+        self.str_rep = str_rep
+        self.dtype = dtype
+        self.managed_proxy = managed_proxy
+
+    def __repr__(self) -> str:
+        return f"{FuncParam.__name__} ({self.str_rep}, dtype={self.dtype}, managed_proxy={self.managed_proxy})"
 
 
 class Proxy:
@@ -92,38 +102,39 @@ class Output:
 ProxyParam: TypeAlias = Union[Proxy, Path, Output]
 
 
-def mange_return_values(f):
+def proxify(f):
 
     signature = inspect.signature(f)
 
-    def _wrap_as_untyped_proxy(value):
-        if isinstance(value, Proxy):
-            return value
-        else:
-            assert isinstance(value, os.PathLike)
-            return Proxy(Path(value), managed=False)
+    def _proxy_from_func_param(param: FuncParam):
+        cls = (
+            param.dtype if param.dtype is not None else Proxy
+        )  # Create new untyped proxy if we only pass a path here
+        assert issubclass(cls, Proxy)
+
+        return cls(Path(param.str_rep), managed=param.managed_proxy)
 
     @wraps(f)
     def wrapped(*args, **kwargs):
 
-        func_args = extract_func_params(args, kwargs, signature.parameters)
+        func_args = extract_func_params(args, kwargs, signature)
+
         should_return = {
             k: isinstance(v.default, Output) for k, v in signature.parameters.items()
         }
 
-        resolved_args = [str(registry.resolve(a, astype=FileLocation)) for a in args]
-        resolved_kwargs = {
-            k: str(registry.resolve(v, astype=FileLocation)) for k, v in kwargs.items()
-        }
+        resolved = [
+            (param.name, registry.resolve(v, astype=FuncParam))
+            for param, v in func_args.items()
+        ]
+
+        resolved_args = [v.str_rep for _, v in resolved[: len(args)]]
+        resolved_kwargs = {k: v.str_rep for k, v in resolved[len(args) :]}
 
         out_val = f(*resolved_args, **resolved_kwargs)
 
-        # TODO: Move wrapping into untyped proxy to type resolution system
         return_vals = [
-            _wrap_as_untyped_proxy(v)
-            for k, v in func_args.items()
-            if should_return[k.name]
-            # if isinstance(v, Proxy)
+            _proxy_from_func_param(v) for k, v in resolved if should_return[k]
         ]
 
         try:
@@ -148,25 +159,30 @@ def mange_return_values(f):
     return wrapped
 
 
-def proxify(f):
+# def proxify(f):
 
-    @resolve_params
-    @mange_return_values
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        return f(*args, **kwargs)
+#     # @resolve_params
+#     @mange_return_values
+#     @wraps(f)
+#     def wrapper(*args, **kwargs):
+#         return f(*args, **kwargs)
 
-    return wrapper
-
-
-@resolver
-def resolve_path_to_file_location(value: Path) -> FileLocation:
-    return FileLocation(value)
+#     return wrapper
 
 
 @resolver
-def resolve_proxy_to_file_location(value: Proxy) -> FileLocation:
-    return registry.resolve(value.path, astype=FileLocation)
+def resolve_path_to_func_param(value: Path) -> FuncParam:
+    return FuncParam(str(value))
+
+
+@resolver
+def resolve_str_to_func_param(value: str) -> FuncParam:
+    return FuncParam(value)
+
+
+@resolver
+def resolve_proxy_to_func_param(value: Proxy) -> FuncParam:
+    return FuncParam(str(value.path), type(value), managed_proxy=value.managed)
 
 
 @resolver

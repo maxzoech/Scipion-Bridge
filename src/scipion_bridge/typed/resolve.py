@@ -114,7 +114,7 @@ class Registry:
     def resolve(self, value, astype: Type[Target]) -> Target:
         return self.find_resolve_func(type(value), astype)(value)
 
-    def _plot_graph(self):
+    def _plot_graph(self):  # pragma: no cover
         import networkx as nx
         import matplotlib.pyplot as plt
 
@@ -164,7 +164,7 @@ def resolve_params(f: Callable):
 
     @wraps(f)
     def wrapper(*args, **kwargs):
-        func_params = extract_func_params(args, kwargs, signature.parameters)
+        func_params = extract_func_params(args, kwargs, signature)
 
         args = list(func_params.items())[: len(args)]
         kwargs = list(func_params.items())[len(args) :]

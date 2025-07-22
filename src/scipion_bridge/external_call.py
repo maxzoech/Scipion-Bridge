@@ -98,7 +98,8 @@ def foreign_function(
 
     func_name = func_name if func_name is not None else f.__name__
 
-    params = inspect.signature(f).parameters
+    signature = inspect.signature(f)
+    params = signature.parameters
     boolean_params = {k for k, v in f.__annotations__.items() if v is bool}
 
     pos_args = {
@@ -127,7 +128,7 @@ def foreign_function(
             *args, **kwargs
         )  # Call function for Python to throw error if args and kwargs aren't passed correctly
 
-        merged_args = extract_func_params(args, kwargs, params)
+        merged_args = extract_func_params(args, kwargs, signature)
 
         # Filter args that are None to support optional arguments
         merged_args = {k: v for k, v in merged_args.items() if v is not None}

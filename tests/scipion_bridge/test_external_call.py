@@ -12,7 +12,7 @@ xmipp_func = partial(foreign_function, domain=xmipp_domain)
 
 
 @xmipp_func
-def xmipp_to_something(inputs: str, outputs: str, *, keyword_param: int) -> int:
+def xmipp_to_something(inputs: str, outputs: str, *, keyword_param: int):
     pass
 
 
@@ -45,9 +45,7 @@ def test_basic_xmipp_func(mocker: MockerFixture):
 
 
 @partial(xmipp_func, args_map={"inputs": "i", "outputs": "o"})
-def xmipp_to_something_with_mapping(
-    inputs: str, outputs: str, *, keyword_param: int
-) -> int:
+def xmipp_to_something_with_mapping(inputs: str, outputs: str, *, keyword_param: int):
     pass
 
 
@@ -79,7 +77,7 @@ def test_basic_xmipp_func_with_mapping(mocker: MockerFixture):
         )
 
 
-def xmipp_boolean(inputs: str, *, boolean_flag: bool) -> int:
+def xmipp_boolean(inputs: str, *, boolean_flag: bool):
     pass
 
 
@@ -244,7 +242,3 @@ def test_custom_postprocessing(mocker: MockerFixture):
             ],
             {"shell": True, "stderr": -1},
         )
-
-
-if __name__ == "__main__":
-    test_basic_xmipp_func()

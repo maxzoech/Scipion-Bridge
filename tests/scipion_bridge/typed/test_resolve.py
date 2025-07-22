@@ -55,6 +55,15 @@ def test_resolved_func():
     foo(10, number=42.0, value="Test")
 
 
+def test_resolve_func_default_params():
+
+    @resolve.resolve_params
+    def foo(bar: resolve.Resolve[str, int] = 10):
+        assert bar == "10"
+
+    foo()
+
+
 def test_resolve_passthrough():
     @resolve.resolve_params
     def foo(bar: resolve.Resolve[int, float]):
@@ -63,5 +72,5 @@ def test_resolve_passthrough():
     foo(42)
 
 
-if __name__ == "__main__":
-    test_resolved_func()
+# if __name__ == "__main__":
+#     test_resolve_func_default_params()

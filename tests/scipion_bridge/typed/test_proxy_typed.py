@@ -70,7 +70,6 @@ def test_conversion_to_typed_proxy():
         assert f.read() == "Hello World"
 
 
-
 def test_resolve_proxy_output():
 
     container = Container()
@@ -225,6 +224,7 @@ def test_proxify_with_params():
         inputs: ProxyParam,
         outputs: Resolve[Proxy, Output] = Output(Volume),
         bar: Optional[Tuple] = None,
+        *,
         value=None,
     ):
 
@@ -248,4 +248,4 @@ def test_proxify_with_params():
 
 
 if __name__ == "__main__":
-    test_conversion_to_typed_proxy()
+    test_proxify_with_params()

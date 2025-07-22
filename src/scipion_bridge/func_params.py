@@ -1,8 +1,11 @@
+import inspect
 from collections import OrderedDict
 from typing import Iterable, Mapping
 
 
-def extract_func_params(args: Iterable, kwargs: Mapping, params):
+def extract_func_params(args: Iterable, kwargs: Mapping, signature: inspect.Signature):
+    params = signature.parameters
+
     defaults = {
         k: param for k, param in params.items() if param.default is not param.empty
     }
