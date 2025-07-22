@@ -159,13 +159,10 @@ def test_resolve_proxy_multi_output():
         assert str(output[1].path) == "/tmp/temp_file_1.vol"
 
 
-@pytest.mark.skip(
-    reason="Unify @proxify and @resolve_params for this work; needs to resolve directly from Output -> str"
-)
 def test_nested_proxies():
 
     @proxify
-    def func_1(output_path: Resolve[Proxy, Output]):
+    def func_1(output_path=Output(TextFile)):
         assert isinstance(output_path, str)
 
         with open(output_path, "w+") as f:
@@ -173,7 +170,7 @@ def test_nested_proxies():
             f.write("Write from func 1")
 
     @proxify
-    def func_2(output_path: Resolve[Proxy, Output]):
+    def func_2(output_path=Output(TextFile)):
         return func_1(output_path)
 
     container = Container()
@@ -184,6 +181,7 @@ def test_nested_proxies():
         output = func_2(Output(TextFile))
         assert isinstance(output, Proxy)
         assert str(output.path) == "/tmp/temp_file_0.txt"
+        assert output.managed == True
 
         with open(output.path) as f:
             assert f.read() == "Write from func 1"
