@@ -208,7 +208,12 @@ def resolve_params(f: Callable):
     def _resolve_arg(arg: Tuple[inspect.Parameter, Any]):
         param, value = arg
         if param.annotation is not None and get_origin(param.annotation) == Resolve:
-            target, constraint = get_args(param.annotation)
+            args = get_args(param.annotation)
+            if len(args) == 1:
+                args = tuple([args[0], Any])
+
+            target, constraint = args
+
             constraint = None if constraint == Any else constraint
             value = registry.resolve(value, astype=target, intermediate=constraint)
 
