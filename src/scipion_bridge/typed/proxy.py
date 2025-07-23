@@ -38,16 +38,34 @@ class FuncParam:
 
 class Proxy:
 
-    def __init__(self, path: os.PathLike, managed=False):
+    def __init__(self, path: os.PathLike, managed=False, *args, **kwargs):
+
         self.path = Path(path)
         self.managed = managed
 
         if self.managed == True:
             arc_manager.add_reference(self.path)
 
+        super().__init__(*args, **kwargs)
+
     @classmethod
     def file_ext(cls) -> Optional[str]:
         return None
+
+    @classmethod
+    @inject
+    def new_temporary_proxy(
+        cls,
+        temp_file_provider: TemporaryFilesProvider = Provide[
+            Container.temp_file_provider
+        ],
+    ) -> "Proxy":
+        file_ext = cls.file_ext()
+        file_ext = file_ext if file_ext is not None else ""
+
+        temp_file = temp_file_provider.new_temporary_file(file_ext)
+
+        return cls(Path(temp_file), managed=True)
 
     def typed(self, *, astype: Type[Casted], copy_data=True) -> Casted:
         if self.file_ext() is not None:
@@ -96,7 +114,7 @@ class Proxy:
         return f"<{self.__class__.__name__} for {self.path} ({is_owned})>"
 
 
-class Output:
+class Output(Generic[T]):
     def __init__(self, dtype: Type[T]) -> None:
         assert issubclass(dtype, Proxy)
         self.dtype = dtype
@@ -109,7 +127,7 @@ if TYPE_CHECKING:
     # class ResolveParam():
     #     pass  # Marker Type
 
-    ResolveParam = Union[Output, Intermediate, Origin]
+    ResolveParam = Union[Output[Intermediate], Intermediate, Origin]
 else:
 
     class ResolveParam(Generic[Intermediate, Origin]):
@@ -210,12 +228,14 @@ def resolve_output_to_proxy(
     temp_file_provider: TemporaryFilesProvider = Provide[Container.temp_file_provider],
 ) -> Proxy:
 
-    file_ext = value.dtype.file_ext()
-    file_ext = file_ext if file_ext is not None else ""
+    # file_ext = value.dtype.file_ext()
+    # file_ext = file_ext if file_ext is not None else ""
 
-    temp_file = temp_file_provider.new_temporary_file(file_ext)
+    # temp_file = temp_file_provider.new_temporary_file(file_ext)
 
-    new_proxy = value.dtype(Path(temp_file), managed=True)
+    # new_proxy = value.dtype(Path(temp_file), managed=True)
+
+    new_proxy = value.dtype.new_temporary_proxy()
 
     assert isinstance(new_proxy, Proxy)
     return new_proxy

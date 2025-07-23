@@ -1,25 +1,16 @@
 from functools import partial
 
+import scipion_bridge
+import scipion_bridge.typed
+import scipion_bridge.typed.volume
 from ..external_call import foreign_function, Domain
-from ..typed.proxy import proxify, Proxy, Output
+from ..typed.proxy import proxify, Proxy, Output, ResolveParam
 from ..typed.array import ArrayConvertable
 from ..typed.resolve import Resolve
 
+# from ..typed.volume import SpiderFile
+
 xmipp_func = partial(foreign_function, domain=Domain("XMIPP", ["scipion", "run"]))
-
-
-class SpiderFile(Proxy, ArrayConvertable):
-
-    @classmethod
-    def file_ext(cls):
-        return ".vol"
-
-    def to_numpy(self):
-        import xmippLib  # type: ignore
-        import numpy as np
-
-        volume = xmippLib.Image(str(self.path))
-        return np.array(volume.getData().astype(np.float32), copy=True)
 
 
 # @proxify
@@ -54,10 +45,6 @@ class SpiderFile(Proxy, ArrayConvertable):
 @partial(
     xmipp_func,
     args_map={"inputs": "i", "outputs": "o", "center_pdb": "centerPDB"},
-    args_validation={
-        # "inputs": "(.+)\.ent",
-        # "outputs": "(.+)\.vol",
-    },
 )
 def xmipp_volume_from_pdb(
     inputs: str,
@@ -89,27 +76,29 @@ def xmipp_volume_align(
     embdb_map: str,
     volume: str,
     local: bool,
-    apply: Resolve[Proxy, Output] = Output(SpiderFile)
+    apply: Resolve[Proxy, Output] = Output(scipion_bridge.typed.volume.SpiderFile)
 ):
     pass
 
 
-# @proxify
-# @partial(
-#     xmipp_func,
-#     args_map={
-#         "aligned_vol": "i",
-#         "outputs": "o",
-#     },
-#     args_validation={
-#         "aligned_vol": "(.+)\.vol",
-#         "outputs": "(.+)\.vol",
-#     },
-# )
-# def xmipp_transform_threshold(
-#     aligned_vol: str, outputs=OutputInfo("vol"), *, select: str, substitute: str
-# ):
-#     pass
+@proxify
+@partial(
+    xmipp_func,
+    args_map={
+        "inputs": "i",
+        "outputs": "o",
+    },
+)
+def xmipp_transform_threshold(
+    inputs: ResolveParam[scipion_bridge.typed.volume.SpiderFile],
+    outputs: ResolveParam[scipion_bridge.typed.volume.SpiderFile] = Output(
+        scipion_bridge.typed.volume.SpiderFile
+    ),
+    *,
+    select: str,
+    substitute: str
+):
+    pass
 
 
 # @proxify

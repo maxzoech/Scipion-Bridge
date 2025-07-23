@@ -1,4 +1,4 @@
-from functools import wraps
+from functools import wraps, partial
 import inspect
 import networkx as nx
 import logging
@@ -95,17 +95,21 @@ class Registry:
                 f"'{origin.__qualname__}' could not be resolved as '{target.__qualname__}'"
             )
 
+        shortest_path = partial(nx.shortest_path, G=self.graph, weight="weight")
+
         try:
             if intermediate is not None and not origin == intermediate:
-                paths = nx.all_shortest_paths(
-                    self.graph, upcast_origin, target, weight="weight"
+                path_to_intermediate = shortest_path(
+                    source=upcast_origin, target=intermediate
                 )
-                paths = filter(lambda el: intermediate in el, paths)
-                path = next(paths)
+                path_to_end = shortest_path(source=intermediate, target=target)
+
+                assert isinstance(path_to_intermediate, list)
+                assert isinstance(path_to_end, list)
+
+                path = path_to_intermediate + path_to_end[1:]  # type: ignore
             else:
-                path = nx.shortest_path(
-                    self.graph, upcast_origin, target, weight="weight"
-                )
+                path = shortest_path(source=upcast_origin, target=target)
 
         except (nx.NetworkXNoPath, nx.NodeNotFound, StopIteration):
             raise TypeError(

@@ -17,4 +17,4 @@ class TemporaryFilesProvider:
     def delete(self, path: os.PathLike):
         logging.debug(f"Remove file at {path}")
 
-        os.remove(path)
+        # os.remove(path)
