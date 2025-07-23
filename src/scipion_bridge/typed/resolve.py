@@ -16,11 +16,10 @@ from typing import (
     Union,
     Optional,
     get_origin,
-    get_args,
     TYPE_CHECKING,
 )
 
-from typing_extensions import TypeVar
+from typing_extensions import TypeVar, get_args
 
 ResolveStep = namedtuple("ResolveStep", ("func", "description"))
 
