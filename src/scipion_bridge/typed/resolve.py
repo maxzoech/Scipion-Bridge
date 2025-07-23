@@ -2,6 +2,7 @@ from functools import wraps
 import inspect
 import networkx as nx
 import logging
+import time
 from collections import namedtuple
 
 from ..func_params import extract_func_params
@@ -10,26 +11,29 @@ from typing import (
     Tuple,
     Type,
     Any,
-    TypeVar,
     Generic,
     Callable,
     Union,
+    Optional,
     get_origin,
     get_args,
     TYPE_CHECKING,
 )
 
+from typing_extensions import TypeVar
+
 ResolveStep = namedtuple("ResolveStep", ("func", "description"))
 
 Target = TypeVar("Target")
 Origin = TypeVar("Origin")
+Intermediate = TypeVar("Intermediate", default=Any)
 
 
 if TYPE_CHECKING:
-    Resolve = Union[Target, Origin]
+    Resolve = Union[Target, Intermediate]
 else:
 
-    class Resolve(Generic[Target, Origin]):
+    class Resolve(Generic[Target, Intermediate]):
         pass  # Marker Type
 
 
@@ -64,7 +68,12 @@ class Registry:
         _add_downcasts(origin)
         _add_downcasts(target)
 
-    def find_resolve_func(self, origin: Type[Origin], target: Type[Target]):
+    def find_resolve_func(
+        self,
+        origin: Type[Origin],
+        target: Type[Target],
+        intermediate: Optional[Type[Intermediate]] = None,
+    ):
         def _make_step(edge, data):
             u, v = edge
             fn = data["resolver"]
@@ -80,7 +89,7 @@ class Registry:
         # Find the first subclass that is in the graph
         for dtype in origin.__mro__:
             if dtype in self.graph:
-                origin = dtype
+                upcast_origin = dtype
                 break
         else:
             raise TypeError(
@@ -88,8 +97,18 @@ class Registry:
             )
 
         try:
-            path = nx.shortest_path(self.graph, origin, target, weight="weight")
-        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            if intermediate is not None and not origin == intermediate:
+                paths = nx.all_shortest_paths(
+                    self.graph, upcast_origin, target, weight="weight"
+                )
+                paths = filter(lambda el: intermediate in el, paths)
+                path = next(paths)
+            else:
+                path = nx.shortest_path(
+                    self.graph, upcast_origin, target, weight="weight"
+                )
+
+        except (nx.NetworkXNoPath, nx.NodeNotFound, StopIteration):
             raise TypeError(
                 f"'{origin.__qualname__}' could not be resolved as '{target.__qualname__}'"
             )
@@ -105,7 +124,7 @@ class Registry:
 
             x = value
             for step in steps:
-                logging.info(step.description)
+                logging.debug(step.description)
 
                 x = step.func(x)  # type: ignore
 
@@ -120,8 +139,32 @@ class Registry:
 
         return resolver_fn
 
-    def resolve(self, value, astype: Type[Target]) -> Target:
-        return self.find_resolve_func(type(value), astype)(value)
+    def resolve(
+        self,
+        value,
+        astype: Type[Target],
+        intermediate: Optional[Type[Intermediate]] = None,
+    ) -> Target:
+
+        start = time.time()
+        resolve_fn = self.find_resolve_func(type(value), astype, intermediate)
+        end_search = time.time()
+
+        search_time = end_search - start
+        search_time_ms = search_time * 1_000
+
+        resolved = resolve_fn(value)
+        end = time.time()
+
+        total = end - start
+        total_ms = total * 1_000
+        search_percentage = int((search_time / total) * 100)
+
+        logging.info(
+            f"Resolving from '{type(value).__qualname__}' to '{astype.__qualname__}' took {total_ms:2f}ms ({search_time_ms:2f}ms ({search_percentage}%) path finding)"
+        )
+
+        return resolved
 
     def _plot_graph(self):  # pragma: no cover
         import networkx as nx
@@ -166,8 +209,9 @@ def resolve_params(f: Callable):
     def _resolve_arg(arg: Tuple[inspect.Parameter, Any]):
         param, value = arg
         if param.annotation is not None and get_origin(param.annotation) == Resolve:
-            target = get_args(param.annotation)[0]
-            value = registry.resolve(value, astype=target)
+            target, constraint = get_args(param.annotation)
+            constraint = None if constraint == Any else constraint
+            value = registry.resolve(value, astype=target, intermediate=constraint)
 
         return param, value
 

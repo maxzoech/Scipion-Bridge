@@ -1,7 +1,8 @@
+import logging
+import scipion_bridge
 import scipion_bridge.typed.resolve as resolve
 from scipion_bridge.typed.proxy import Proxy, Output
 from typing import Any
-import logging
 
 import pytest
 
@@ -46,6 +47,12 @@ def test_unresolvable_types_error():
 
 def test_resolved_func():
 
+    logging.basicConfig(level=logging.INFO)
+
+    @resolve.resolver
+    def resolve_float_to_int(value: float) -> int:
+        return int(value)
+
     @resolve.resolve_params
     def foo(bar: resolve.Resolve[str, int], number: float, value):
         assert bar == "10"
@@ -53,12 +60,13 @@ def test_resolved_func():
         assert value == "Test"
 
     foo(10, number=42.0, value="Test")
+    foo(10.0, number=42.0, value="Test")
 
 
 def test_resolve_func_default_params():
 
     @resolve.resolve_params
-    def foo(bar: resolve.Resolve[str, int] = 10):
+    def foo(bar: resolve.Resolve[str] = 10):
         assert bar == "10"
 
     foo()
@@ -72,5 +80,5 @@ def test_resolve_passthrough():
     foo(42)
 
 
-# if __name__ == "__main__":
-#     test_resolve_func_default_params()
+if __name__ == "__main__":
+    test_resolved_func()
