@@ -14,11 +14,14 @@ from ..utils.arc import manager as arc_manager
 from ..func_params import extract_func_params
 
 from .resolve import registry, resolve_params, resolver
-from typing import Optional, TypeVar, Generic, Type, Union
-from typing_extensions import TypeAlias
+from typing import Optional, Generic, Type, Union, TYPE_CHECKING, Any
+from typing_extensions import TypeAlias, TypeVar, get_args, get_origin
 
 Casted = TypeVar("Casted")
 T = TypeVar("T")
+
+Intermediate = TypeVar("Intermediate", default=Any)
+Origin = TypeVar("Origin", default=Any)
 
 
 class FuncParam:
@@ -101,6 +104,18 @@ class Output:
         registry.add_resolver(Output, dtype, resolver=resolve_output_to_proxy)
 
 
+if TYPE_CHECKING:
+
+    # class ResolveParam():
+    #     pass  # Marker Type
+
+    ResolveParam = Union[Output, Intermediate, Origin]
+else:
+
+    class ResolveParam(Generic[Intermediate, Origin]):
+        pass  # Marker Type
+
+
 ProxyParam: TypeAlias = Union[Proxy, Path, Output]
 
 
@@ -116,6 +131,20 @@ def proxify(f):
 
         return cls(Path(param.str_rep), managed=param.managed_proxy)
 
+    def _resolve_proxy_arg(value, param: inspect.Parameter) -> FuncParam:
+        intermediate = None
+
+        if (
+            param.annotation is not None
+            and get_origin(param.annotation) == ResolveParam
+        ):
+            args = get_args(param.annotation)
+            if args:
+                arg = args[0]
+                intermediate = arg if not arg == Any else None
+
+        return registry.resolve(value, astype=FuncParam, intermediate=intermediate)
+
     @wraps(f)
     def wrapped(*args, **kwargs):
 
@@ -126,8 +155,7 @@ def proxify(f):
         }
 
         resolved = [
-            (param.name, registry.resolve(v, astype=FuncParam))
-            for param, v in func_args.items()
+            (param.name, _resolve_proxy_arg(v, param)) for param, v in func_args.items()
         ]
 
         resolved_args = [v.str_rep for _, v in resolved[: len(args)]]

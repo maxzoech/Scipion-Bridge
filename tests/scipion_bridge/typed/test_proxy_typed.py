@@ -149,8 +149,8 @@ def test_resolve_proxy_multi_output():
 
     @proxify
     def foo(
-        output_1 = Output(Volume),
-        output_2 = Output(Volume),
+        output_1=Output(Volume),
+        output_2=Output(Volume),
     ):
         pass
 
@@ -275,29 +275,24 @@ def test_combine_proxify_and_resolve():
         return MyVolume(Path("/tmp/temp_file_0.custom"), managed=True)
 
     data = np.random.uniform(1.0, 1.0, size=[16, 16, 16])
-    resolved = registry.resolve(data, astype=proxy.FuncParam, intermediate=MyVolume)
 
-    print(resolved)
+    @proxify
+    def foo(inputs: proxy.ResolveParam[MyVolume, np.ndarray] = Output(MyVolume)):
+        assert inputs == "/tmp/temp_file_0.custom"
 
-    # @resolve_params
-    # @proxify
-    # def foo(inputs=Output(MyVolume)):
-    #     print(inputs)
-    #     # assert inputs == "/tmp/temp_file_0.custom"
+    container = Container()
+    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
 
-    # container = Container()
-    # container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    temp_file_mock = TempFileMock()
 
-    # temp_file_mock = TempFileMock()
+    with container.temp_file_provider.override(temp_file_mock):
+        output_new = foo()
+        assert str(output_new.path) == "/tmp/temp_file_0.custom"  # type: ignore
 
-    # with container.temp_file_provider.override(temp_file_mock):
-    #     output_new = foo()
-    #     assert str(output_new.path) == "/tmp/temp_file_0.custom"
+        output_numpy = foo(data)
+        assert str(output_numpy.path) == "/tmp/temp_file_0.custom"  # type: ignore
 
-    #     output_numpy = foo(data)
-    #     assert str(output_numpy.path) == "/tmp/temp_file_0.custom"
-
-    #     del output_new, output_numpy
+        del output_new, output_numpy
 
 
 if __name__ == "__main__":
