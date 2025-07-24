@@ -1,6 +1,13 @@
 import os
 from typing import Dict
 import warnings
+from pathlib import Path
+
+from dependency_injector.wiring import Provide, inject
+from ..utils.environment.container import Container
+from ..utils.environment.temp_files import TemporaryFilesProvider
+
+from typing import Optional
 
 
 class FileReferenceCounter:
@@ -8,14 +15,40 @@ class FileReferenceCounter:
     def __init__(self) -> None:
         self.references: Dict[os.PathLike, int] = {}
 
+    def new_managed_file(
+        self,
+        file_ext: Optional[str],
+        temp_file_provider: TemporaryFilesProvider = Provide[
+            Container.temp_file_provider
+        ],
+    ) -> Path:
+
+        new_path = temp_file_provider.new_temporary_file(file_ext)
+        assert isinstance(new_path, Path)
+
+        self.references[new_path] = 1
+
+        return new_path
+
     def add_reference(self, path: os.PathLike):
         if path not in self.references:
             self.references[path] = 1
+            warnings.warn(
+                "Counting references for non-temporary files is deprecated (these files are most likely created by the user at a persistent location, so reference counting would delete them)",
+                DeprecationWarning,
+            )
         else:
             count = self.references[path]
             self.references[path] = count + 1
 
-    def remove_reference(self, path: os.PathLike):
+    @inject
+    def remove_reference(
+        self,
+        path: os.PathLike,
+        temp_file_provider: TemporaryFilesProvider = Provide[
+            Container.temp_file_provider
+        ],
+    ):
         assert (
             path in self.references
         ), f"Path {path} not managed by automatic reference counting"
@@ -24,6 +57,7 @@ class FileReferenceCounter:
         if count > 1:
             self.references[path] = count - 1
         else:
+            temp_file_provider.delete(path)
             del self.references[path]
 
     def is_tracked(self, path: os.PathLike):

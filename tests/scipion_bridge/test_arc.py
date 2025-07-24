@@ -1,32 +1,56 @@
+import os
+
 from pathlib import Path
 from scipion_bridge.utils.arc import FileReferenceCounter
+from scipion_bridge.utils.environment.container import Container
 
 import pytest
 
 
+class TempFileMock:
+
+    def __init__(self):
+        self.count = 0
+
+    def new_temporary_file(self, suffix: str) -> os.PathLike:
+        file = f"/tmp/temp_file_{self.count}{suffix}"
+        self.count += 1
+
+        return Path(file)
+
+    def delete(self, path: os.PathLike):
+        pass
+
+
 def test_reference_counting():
     manager = FileReferenceCounter()
-    path_1 = Path("/path/to/file_1.txt")
-    path_2 = Path("/path/to/file_2.txt")
 
-    with pytest.warns(UserWarning):
-        assert manager.get_count(path_1) == 0
+    container = Container()
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
-    manager.add_reference(path_1)
-    manager.add_reference(path_1)
+    temp_file_mock = TempFileMock()
 
-    assert manager.get_count(path_1) == 2
+    with container.temp_file_provider.override(temp_file_mock):
 
-    manager.remove_reference(path_1)
-    manager.add_reference(path_2)
+        path_1 = manager.new_managed_file("txt")
+        path_2 = manager.new_managed_file("vol")  # Path("/path/to/file_2.txt")
 
-    assert manager.get_count(path_1) == 1
-    assert manager.get_count(path_2) == 1
+        manager.add_reference(path_1)
 
-    manager.remove_reference(path_1)
+        assert manager.get_count(path_1) == 2
 
-    with pytest.raises(AssertionError):
         manager.remove_reference(path_1)
+        manager.add_reference(path_2)
+
+        assert manager.get_count(path_1) == 1
+        assert manager.get_count(path_2) == 2
+
+        manager.remove_reference(path_1)
+
+        with pytest.raises(AssertionError):
+            manager.remove_reference(path_1)
 
 
 if __name__ == "__main__":

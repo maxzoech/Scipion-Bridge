@@ -47,7 +47,9 @@ class Volume(Proxy):
 def test_conversion_to_typed_proxy():
 
     container = Container()
-    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
     temp_file_mock = TempFileMock()
 
@@ -79,7 +81,9 @@ def test_conversion_to_typed_proxy():
 def test_resolve_proxy_output():
 
     container = Container()
-    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
     temp_file_mock = TempFileMock()
 
@@ -155,7 +159,9 @@ def test_resolve_proxy_multi_output():
         pass
 
     container = Container()
-    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
     temp_file_mock = TempFileMock()
     with container.temp_file_provider.override(temp_file_mock):
@@ -180,7 +186,9 @@ def test_nested_proxies():
         return func_1(output_path)
 
     container = Container()
-    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
     temp_file_mock = TempFileMock()
     with container.temp_file_provider.override(temp_file_mock):
@@ -208,7 +216,9 @@ def test_return_value_warning():
         return func_1(Output(TextFile))
 
     container = Container()
-    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
     temp_file_mock = TempFileMock()
     with container.temp_file_provider.override(temp_file_mock):
@@ -238,7 +248,9 @@ def test_proxify_with_params():
         assert value == "42"
 
     container = Container()
-    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
     temp_file_mock = TempFileMock()
 
@@ -281,7 +293,9 @@ def test_combine_proxify_and_resolve():
         assert inputs == "/tmp/temp_file_0.custom"
 
     container = Container()
-    container.wire(modules=[__name__, "scipion_bridge.typed.proxy"])
+    container.wire(
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+    )
 
     temp_file_mock = TempFileMock()
 

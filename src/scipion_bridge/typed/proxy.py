@@ -13,6 +13,8 @@ from ..utils.environment.temp_files import TemporaryFilesProvider
 from ..utils.arc import manager as arc_manager
 from ..func_params import extract_func_params
 
+from ..utils.arc import manager as arc_manager
+
 from .resolve import registry, resolve_params, resolver
 from typing import Optional, Generic, Type, Union, TYPE_CHECKING, Any
 from typing_extensions import TypeAlias, TypeVar, get_args, get_origin
@@ -32,8 +34,15 @@ class FuncParam:
         self.dtype = dtype
         self.managed_proxy = managed_proxy
 
+        if managed_proxy:
+            arc_manager.add_reference(Path(str_rep))
+
     def __repr__(self) -> str:
         return f"{FuncParam.__name__} ({self.str_rep}, dtype={self.dtype}, managed_proxy={self.managed_proxy})"
+
+    def __del__(self):
+        if self.managed_proxy:
+            arc_manager.remove_reference(Path(self.str_rep))
 
 
 class Proxy:
@@ -53,19 +62,13 @@ class Proxy:
         return None
 
     @classmethod
-    @inject
-    def new_temporary_proxy(
-        cls,
-        temp_file_provider: TemporaryFilesProvider = Provide[
-            Container.temp_file_provider
-        ],
-    ) -> "Proxy":
+    def new_temporary_proxy(cls) -> "Proxy":
         file_ext = cls.file_ext()
         file_ext = file_ext if file_ext is not None else ""
 
-        temp_file = temp_file_provider.new_temporary_file(file_ext)
+        temp_file = arc_manager.new_managed_file(file_ext)
 
-        return cls(Path(temp_file), managed=True)
+        return cls(temp_file, managed=True)
 
     def typed(self, *, astype: Type[Casted], copy_data=True) -> Casted:
         if self.file_ext() is not None:
@@ -99,15 +102,11 @@ class Proxy:
 
         try:
             if self.managed == True:
-                if arc_manager.get_count(self.path) == 1:
-                    temp_file_provider.delete(self.path)
+                arc_manager.remove_reference(self.path)
 
         except Exception as e:
             logging.warning(f"Failed to delete file at {self.path}: {e}")
             pass  # Fail silently
-
-        if self.managed:
-            arc_manager.remove_reference(self.path)
 
     def __str__(self):
         is_owned = "managed" if self.managed else "unmanaged"
