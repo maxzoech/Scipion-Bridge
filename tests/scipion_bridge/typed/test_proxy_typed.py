@@ -1,25 +1,23 @@
 import os
+import logging
 import warnings
 from pathlib import Path
-from functools import partial
 
-from scipion_bridge.typed import proxy
+from scipion_bridge.typed import proxy, common
+
 from scipion_bridge.typed.resolve import (
     registry,
     Resolve,
     Registry,
     resolver,
-    resolve_params,
 )
 from scipion_bridge.typed.proxy import proxify
 from scipion_bridge.typed.proxy import Proxy, ProxyParam, Output
 from scipion_bridge.utils.environment.container import Container
-from scipion_bridge.utils.environment import configure_default_env
 from scipion_bridge.utils.arc import manager as arc_manager
 
 import pytest
-from pytest_mock import MockerFixture
-from typing import Optional, Union, Tuple, Any
+from typing import Optional, Tuple
 
 
 class TempFileMock:
@@ -233,6 +231,8 @@ def test_return_value_warning():
 
 def test_proxify_with_params():
 
+    logging.basicConfig(level=logging.DEBUG)
+
     @proxify
     def foo(
         inputs: ProxyParam,
@@ -249,7 +249,7 @@ def test_proxify_with_params():
 
     container = Container()
     container.wire(
-        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.typed.common", "scipion_bridge.utils.arc"]
     )
 
     temp_file_mock = TempFileMock()
@@ -310,4 +310,4 @@ def test_combine_proxify_and_resolve():
 
 
 if __name__ == "__main__":
-    test_combine_proxify_and_resolve()
+    test_proxify_with_params()

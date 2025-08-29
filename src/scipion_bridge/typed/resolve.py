@@ -47,7 +47,7 @@ def _passthrough(x):
 def _find_calling_frame():
     frame = inspect.currentframe()
     while frame is not None:
-        if not frame.f_globals["__name__"] == __name__:
+        if not frame.f_globals["__name__"].startswith(__package__):
             return frame
         else:
             frame = frame.f_back
@@ -66,13 +66,19 @@ class Registry:
     
 
     def add_resolver(
-        self, origin: Type[Origin], target: Type[Origin], resolver: Callable, module: str,
+        self, origin: Type[Origin], target: Type[Origin], resolver: Callable, module: Optional[str] = None,
     ):
+        
+        if module is None:
+            frame = _find_calling_frame()
+            module = frame.f_globals["__name__"]
 
         if self.graph.has_edge(origin, target):
-            if self.graph.edges[(origin, target)]["module"] == module:
+            edge = self.graph.edges[(origin, target)]
+
+            if edge["module"] == module and not resolver is edge["resolver"]:
                 warnings.warn(
-                    f"Attempted register a resolver for existing transform '{origin.__qualname__}' -> '{target.__qualname__}'",
+                    f"Attempted register a resolver for existing transform '{origin.__qualname__}' -> '{target.__qualname__}' ('{edge['resolver'].__qualname__}' vs '{resolver.__qualname__}')",
                     UserWarning
                 )
                 return
@@ -194,12 +200,12 @@ class Registry:
         global_modules = {v for v in map(_find_module, frame.f_globals.values()) if v is not None}
         global_modules.add(frame.f_globals["__name__"])
 
-        registered_modules = registry.get_registered_modules()
+        registered_modules = self.get_registered_modules()
 
         namespaces = global_modules & registered_modules
 
         intermediate_desc = f"(via {intermediate.__qualname__})" if intermediate is not None else ""
-        logging.info(f"Resolve {type(value).__qualname__} to {astype.__qualname__}{intermediate_desc} with namespaces {", ".join(namespaces).rstrip()}")
+        logging.info(f"Resolve {type(value).__qualname__} -> {astype.__qualname__}{intermediate_desc} with namespaces {", ".join(namespaces).rstrip()}")
 
         resolve_fn = self.find_resolve_func(namespaces, type(value), astype, intermediate)
         end_search = time.time()
