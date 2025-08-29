@@ -42,6 +42,7 @@ class Volume(Proxy):
         return ".vol"
 
 
+@pytest.mark.filterwarnings("ignore:Counting references for non-temporary files is deprecated")
 def test_conversion_to_typed_proxy():
 
     container = Container()
@@ -230,8 +231,6 @@ def test_return_value_warning():
 
 
 def test_proxify_with_params():
-
-    logging.basicConfig(level=logging.DEBUG)
 
     @proxify
     def foo(
