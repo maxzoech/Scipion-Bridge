@@ -2,6 +2,7 @@ from functools import wraps, partial
 import inspect
 import networkx as nx
 import logging
+import warnings
 import time
 from collections import namedtuple
 
@@ -9,6 +10,7 @@ from ..func_params import extract_func_params
 
 from typing import (
     Tuple,
+    Set,
     Type,
     Any,
     Generic,
@@ -35,9 +37,22 @@ else:
     class Resolve(Generic[Target, Intermediate]):
         pass  # Marker Type
 
+def _downcast(x):
+    return x
 
 def _passthrough(x):
     return x
+
+
+def _find_calling_frame():
+    frame = inspect.currentframe()
+    while frame is not None:
+        if not frame.f_globals["__name__"] == __name__:
+            return frame
+        else:
+            frame = frame.f_back
+    else:
+        raise RuntimeError("Could not find calling frame. This is a bug.")
 
 
 class Registry:
@@ -45,12 +60,22 @@ class Registry:
     def __init__(self) -> None:
         self.graph = nx.DiGraph()
 
+    def get_registered_modules(self) -> Set[str]:
+        modules = { v[2] for v in self.graph.edges.data("module") } # type: ignore
+        return modules
+    
+
     def add_resolver(
-        self, origin: Type[Origin], target: Type[Origin], resolver: Callable
+        self, origin: Type[Origin], target: Type[Origin], resolver: Callable, module: str,
     ):
 
         if self.graph.has_edge(origin, target):
-            return
+            if self.graph.edges[(origin, target)]["module"] == module:
+                warnings.warn(
+                    f"Attempted register a resolver for existing transform '{origin.__qualname__}' -> '{target.__qualname__}'",
+                    UserWarning
+                )
+                return
 
         def _add_downcasts(subclass: Type):
             for weight, dtype in enumerate(subclass.__mro__):
@@ -58,10 +83,10 @@ class Registry:
                     continue
 
                 self.graph.add_edge(
-                    subclass, dtype, resolver=_passthrough, weight=weight
+                    subclass, dtype, resolver=_downcast, weight=weight, module=module
                 )
 
-        self.graph.add_edge(origin, target, resolver=resolver, weight=0)
+        self.graph.add_edge(origin, target, resolver=resolver, weight=0, module=module)
 
         # Add edges to downcast data
         _add_downcasts(origin)
@@ -69,6 +94,7 @@ class Registry:
 
     def find_resolve_func(
         self,
+        namespace: Set[str],
         origin: Type[Origin],
         target: Type[Target],
         intermediate: Optional[Type[Intermediate]] = None,
@@ -79,23 +105,26 @@ class Registry:
 
             return ResolveStep(
                 fn,
-                f"{u.__qualname__} -> {v.__qualname__}: {fn.__qualname__}",
+                f"{u.__qualname__} -> {v.__qualname__}: {fn.__qualname__} ({fn.__module__})",
             )
 
         if origin == target:
             return _passthrough
+                
+        selected_edges = [(u,v, e) for u,v,e in self.graph.edges(data=True) if e['module'] in namespace]
+        subgraph = nx.DiGraph(selected_edges)
 
         # Find the first subclass that is in the graph
         for dtype in origin.__mro__:
-            if dtype in self.graph:
+            if dtype in subgraph:
                 upcast_origin = dtype
                 break
         else:
             raise TypeError(
                 f"'{origin.__qualname__}' could not be resolved as '{target.__qualname__}'"
             )
-
-        shortest_path = partial(nx.shortest_path, G=self.graph, weight="weight")
+        
+        shortest_path = partial(nx.shortest_path, G=subgraph, weight="weight")
 
         try:
             if intermediate is not None and not origin == intermediate:
@@ -117,7 +146,7 @@ class Registry:
             )
 
         steps = [
-            _make_step((u, v), self.graph.get_edge_data(u, v))
+            _make_step((u, v), subgraph.get_edge_data(u, v))
             for u, v in zip(path, path[1:])
         ]
 
@@ -148,9 +177,31 @@ class Registry:
         astype: Type[Target],
         intermediate: Optional[Type[Intermediate]] = None,
     ) -> Target:
+        
+        def _find_module(value: Any) -> Optional[str]:
+            try:
+                if inspect.ismodule(value):
+                    return value.__name__
+                else:
+                    return value.__module__
+            except AttributeError:
+                return None
 
         start = time.time()
-        resolve_fn = self.find_resolve_func(type(value), astype, intermediate)
+
+        # Find imported modules to construct namespace
+        frame = _find_calling_frame()
+        global_modules = {v for v in map(_find_module, frame.f_globals.values()) if v is not None}
+        global_modules.add(frame.f_globals["__name__"])
+
+        registered_modules = registry.get_registered_modules()
+
+        namespaces = global_modules & registered_modules
+
+        intermediate_desc = f"(via {intermediate.__qualname__})" if intermediate is not None else ""
+        logging.info(f"Resolve {type(value).__qualname__} to {astype.__qualname__}{intermediate_desc} with namespaces {", ".join(namespaces).rstrip()}")
+
+        resolve_fn = self.find_resolve_func(namespaces, type(value), astype, intermediate)
         end_search = time.time()
 
         search_time = end_search - start
@@ -169,11 +220,12 @@ class Registry:
 
         return resolved
 
-    def _plot_graph(self):  # pragma: no cover
+    def _plot_graph(self, G=None):  # pragma: no cover
         import networkx as nx
         import matplotlib.pyplot as plt
 
-        G = self.graph
+        if G is None:
+            G = self.graph
 
         pos = nx.spring_layout(G, seed=7)
         nx.draw_networkx_nodes(G, pos, node_size=250)
@@ -181,8 +233,15 @@ class Registry:
 
         nx.draw_networkx_labels(G, pos, font_size=12, font_family="sans-serif")
 
-        edge_labels = nx.get_edge_attributes(G, "weight")
-        nx.draw_networkx_edge_labels(G, pos, edge_labels)
+        edge_weights = nx.get_edge_attributes(G, "weight")
+        edge_modules = nx.get_edge_attributes(G, "module")
+
+        edge_labels = {}
+        for k in edge_weights.keys():
+            edge_labels[k] = f"{edge_modules[k]} ({edge_weights[k]})"
+
+
+        nx.draw_networkx_edge_labels(G, pos, edge_weights)
 
         ax = plt.gca()
         ax.margins(0.08)
@@ -200,7 +259,7 @@ def resolver(f):
     in_dtype = f.__annotations__["value"]
     out_dtype = f.__annotations__["return"]
 
-    registry.add_resolver(in_dtype, out_dtype, f)
+    registry.add_resolver(in_dtype, out_dtype, f, str(f.__module__))
 
     return f
 

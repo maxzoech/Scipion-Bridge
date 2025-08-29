@@ -2,6 +2,9 @@ import logging
 import scipion_bridge
 import scipion_bridge.typed.resolve as resolve
 from scipion_bridge.typed.proxy import Proxy, Output
+
+from scipion_bridge.typed import common
+
 from typing import Any
 
 import pytest
@@ -80,5 +83,28 @@ def test_resolve_passthrough():
     foo(42)
 
 
+def test_resolve_namespaces():
+    
+    logging.getLogger().setLevel(logging.DEBUG)
+
+    def bar():
+        # @resolve.resolver
+        # def resolve_float(value: float) -> str:
+        #     return str(value * 2)
+        
+
+        @resolve.resolve_params
+        def foo(bar: resolve.Resolve[str]):
+            print(bar)
+
+        r = foo((42.0, 41.0, 4.0))
+        return r
+    
+    # resolve.registry._plot_graph()
+
+    r = bar()
+    # print(r)
+
+
 if __name__ == "__main__":
-    test_resolved_func()
+    test_resolve_namespaces()
