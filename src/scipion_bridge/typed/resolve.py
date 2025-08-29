@@ -205,7 +205,9 @@ class Registry:
         namespaces = global_modules & registered_modules
 
         intermediate_desc = f"(via {intermediate.__qualname__})" if intermediate is not None else ""
-        logging.info(f"Resolve {type(value).__qualname__} -> {astype.__qualname__}{intermediate_desc} with namespaces {", ".join(namespaces).rstrip()}")
+        namespaces_desc = ", ".join(namespaces).rstrip()
+
+        logging.info(f"Resolve {type(value).__qualname__} -> {astype.__qualname__}{intermediate_desc} with namespaces {namespaces_desc}")
 
         resolve_fn = self.find_resolve_func(namespaces, type(value), astype, intermediate)
         end_search = time.time()
