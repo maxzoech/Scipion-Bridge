@@ -7,7 +7,7 @@ import time
 from collections import namedtuple
 
 from ..func_params import extract_func_params
-from .dijkstra import find_shortest_path
+from .dijkstra import find_shortest_path, PathfindingContainer
 
 from typing import (
     Tuple,
@@ -56,6 +56,41 @@ def _find_calling_frame():
             frame = frame.f_back
     else:
         raise RuntimeError("Could not find calling frame. This is a bug.")
+
+
+class ScopedPathfindingContainer(PathfindingContainer):
+
+    def __init__(
+        self, value: Any, previous: Optional[Any], weight: int, local_scope_name: str
+    ) -> None:
+        super().__init__(value, previous, weight)
+
+        self.local_scope_name = local_scope_name
+
+    @property
+    def is_local_scope(self):
+        return self.value["module"].startswith(self.local_scope_name)
+
+    @property
+    def resolution_priority(self):
+        if self.is_local_scope:
+            return 0  # Higher priority
+        else:
+            return 1
+
+    def __lt__(self, other):
+        assert isinstance(other, ScopedPathfindingContainer)
+
+        if not self.weight == other.weight:
+            return self.weight < other.weight
+        else:
+            if not self.resolution_priority == other.resolution_priority:
+                return self.resolution_priority < other.resolution_priority
+            else:
+                path_length = len(self.value["module"].split("."))
+                other_path_length = len(other.value["module"].split("."))
+
+                return other_path_length < path_length
 
 
 class Registry:
