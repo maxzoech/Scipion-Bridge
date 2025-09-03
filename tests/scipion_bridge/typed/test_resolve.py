@@ -50,6 +50,8 @@ def test_unresolvable_types_error():
 
 def test_resolved_func():
 
+    logging.basicConfig(level=logging.DEBUG)
+
     @resolve.resolver
     def resolve_float_to_int(value: float) -> int:
         return int(value)
@@ -105,4 +107,4 @@ def test_resolve_passthrough():
 
 
 if __name__ == "__main__":
-    test_resolve_faulty_resolver()
+    test_resolved_func()

@@ -7,6 +7,7 @@ import time
 from collections import namedtuple
 
 from ..func_params import extract_func_params
+from .dijkstra import find_shortest_path
 
 from typing import (
     Tuple,
@@ -37,8 +38,10 @@ else:
     class Resolve(Generic[Target, Intermediate]):
         pass  # Marker Type
 
+
 def _downcast(x):
     return x
+
 
 def _passthrough(x):
     return x
@@ -61,14 +64,17 @@ class Registry:
         self.graph = nx.DiGraph()
 
     def get_registered_modules(self) -> Set[str]:
-        modules = { v[2] for v in self.graph.edges.data("module") } # type: ignore
+        modules = {v[2] for v in self.graph.edges.data("module")}  # type: ignore
         return modules
-    
 
     def add_resolver(
-        self, origin: Type[Origin], target: Type[Origin], resolver: Callable, module: Optional[str] = None,
+        self,
+        origin: Type[Origin],
+        target: Type[Origin],
+        resolver: Callable,
+        module: Optional[str] = None,
     ):
-        
+
         if module is None:
             frame = _find_calling_frame()
             module = frame.f_globals["__name__"]
@@ -79,7 +85,7 @@ class Registry:
             if edge["module"] == module and not resolver is edge["resolver"]:
                 warnings.warn(
                     f"Attempted register a resolver for existing transform '{origin.__qualname__}' -> '{target.__qualname__}' ('{edge['resolver'].__qualname__}' vs '{resolver.__qualname__}')",
-                    UserWarning
+                    UserWarning,
                 )
                 return
 
@@ -108,16 +114,21 @@ class Registry:
         def _make_step(edge, data):
             u, v = edge
             fn = data["resolver"]
+            mod = data["module"]
 
             return ResolveStep(
                 fn,
-                f"{u.__qualname__} -> {v.__qualname__}: {fn.__qualname__} ({fn.__module__})",
+                f"{u.__qualname__} -> {v.__qualname__}: {fn.__qualname__} ({mod})",
             )
 
         if origin == target:
             return _passthrough
-                
-        selected_edges = [(u,v, e) for u,v,e in self.graph.edges(data=True) if e['module'] in namespace]
+
+        selected_edges = [
+            (u, v, e)
+            for u, v, e in self.graph.edges(data=True)
+            if e["module"] in namespace
+        ]
         subgraph = nx.DiGraph(selected_edges)
 
         # Find the first subclass that is in the graph
@@ -129,22 +140,30 @@ class Registry:
             raise TypeError(
                 f"'{origin.__qualname__}' could not be resolved as '{target.__qualname__}'"
             )
-        
+
         shortest_path = partial(nx.shortest_path, G=subgraph, weight="weight")
 
         try:
-            if intermediate is not None and not origin == intermediate:
-                path_to_intermediate = shortest_path(
-                    source=upcast_origin, target=intermediate
-                )
-                path_to_end = shortest_path(source=intermediate, target=target)
+            path = find_shortest_path(
+                subgraph,
+                upcast_origin,
+                target,
+                intermediate,
+                weight="weight",
+                namespace="module",
+            )
+            # if intermediate is not None and not origin == intermediate:
+            #     path_to_intermediate = shortest_path(
+            #         source=upcast_origin, target=intermediate
+            #     )
+            #     path_to_end = shortest_path(source=intermediate, target=target)
 
-                assert isinstance(path_to_intermediate, list)
-                assert isinstance(path_to_end, list)
+            #     assert isinstance(path_to_intermediate, list)
+            #     assert isinstance(path_to_end, list)
 
-                path = path_to_intermediate + path_to_end[1:]  # type: ignore
-            else:
-                path = shortest_path(source=upcast_origin, target=target)
+            #     path = path_to_intermediate + path_to_end[1:]  # type: ignore
+            # else:
+            #     path = shortest_path(source=upcast_origin, target=target)
 
         except (nx.NetworkXNoPath, nx.NodeNotFound, StopIteration):
             raise TypeError(
@@ -183,7 +202,7 @@ class Registry:
         astype: Type[Target],
         intermediate: Optional[Type[Intermediate]] = None,
     ) -> Target:
-        
+
         def _find_module(value: Any) -> Optional[str]:
             try:
                 if inspect.ismodule(value):
@@ -197,19 +216,29 @@ class Registry:
 
         # Find imported modules to construct namespace
         frame = _find_calling_frame()
-        global_modules = {v for v in map(_find_module, frame.f_globals.values()) if v is not None}
+        global_modules = {
+            v for v in map(_find_module, frame.f_globals.values()) if v is not None
+        }
         global_modules.add(frame.f_globals["__name__"])
 
         registered_modules = self.get_registered_modules()
 
         namespaces = global_modules & registered_modules
 
-        intermediate_desc = f"(via {intermediate.__qualname__})" if intermediate is not None else ""
-        namespaces_desc = ", ".join(namespaces).rstrip()
+        intermediate_desc = (
+            f" (via '{intermediate.__qualname__}')" if intermediate is not None else ""
+        )
 
-        logging.info(f"Resolve {type(value).__qualname__} -> {astype.__qualname__}{intermediate_desc} with namespaces {namespaces_desc}")
+        namespaces_desc = [f"'{n}'" for n in namespaces]
+        namespaces_desc = ", ".join(namespaces_desc).rstrip()
 
-        resolve_fn = self.find_resolve_func(namespaces, type(value), astype, intermediate)
+        logging.info(
+            f"Resolve '{type(value).__qualname__}' -> '{astype.__qualname__}'{intermediate_desc} with namespaces {namespaces_desc}"
+        )
+
+        resolve_fn = self.find_resolve_func(
+            namespaces, type(value), astype, intermediate
+        )
         end_search = time.time()
 
         search_time = end_search - start
@@ -247,7 +276,6 @@ class Registry:
         edge_labels = {}
         for k in edge_weights.keys():
             edge_labels[k] = f"{edge_modules[k]} ({edge_weights[k]})"
-
 
         nx.draw_networkx_edge_labels(G, pos, edge_weights)
 

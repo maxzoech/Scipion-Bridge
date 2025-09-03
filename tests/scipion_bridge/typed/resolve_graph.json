@@ -1,0 +1,172 @@
+{
+    "directed": true,
+    "multigraph": true,
+    "graph": {},
+    "nodes": [
+        {
+            "id": "object"
+        },
+        {
+            "id": "str"
+        },
+        {
+            "id": "tuple"
+        },
+        {
+            "id": "pathlib.Path"
+        },
+        {
+            "id": "scipion_bridge.typed.proxy.FuncParam"
+        },
+        {
+            "id": "pathlib.PurePath"
+        },
+        {
+            "id": "scipion_bridge.typed.proxy.Proxy"
+        },
+        {
+            "id": "scipion_bridge.typed.proxy.Output"
+        },
+        {
+            "id": "__main__.Volume"
+        },
+        {
+            "id": "typing.Generic"
+        }
+    ],
+    "links": [
+        {
+            "resolver": "resolve_any_to_str",
+            "weight": 0,
+            "module": "scipion_bridge.typed.common",
+            "source": "object",
+            "target": "str"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 0,
+            "module": "scipion_bridge.typed.common",
+            "source": "str",
+            "target": "str"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 1,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "str",
+            "target": "object"
+        },
+        {
+            "resolver": "resolve_str_to_func_param",
+            "weight": 0,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "str",
+            "target": "scipion_bridge.typed.proxy.FuncParam"
+        },
+        {
+            "resolver": "resolve_tuple_to_str",
+            "weight": 0,
+            "module": "scipion_bridge.typed.common",
+            "source": "tuple",
+            "target": "str"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 1,
+            "module": "scipion_bridge.typed.common",
+            "source": "tuple",
+            "target": "object"
+        },
+        {
+            "resolver": "resolve_path_to_func_param",
+            "weight": 0,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "pathlib.Path",
+            "target": "scipion_bridge.typed.proxy.FuncParam"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 1,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "pathlib.Path",
+            "target": "pathlib.PurePath"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 2,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "pathlib.Path",
+            "target": "object"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 0,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "scipion_bridge.typed.proxy.FuncParam",
+            "target": "scipion_bridge.typed.proxy.FuncParam"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 1,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "scipion_bridge.typed.proxy.FuncParam",
+            "target": "object"
+        },
+        {
+            "resolver": "resolve_proxy_to_func_param",
+            "weight": 0,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "scipion_bridge.typed.proxy.Proxy",
+            "target": "scipion_bridge.typed.proxy.FuncParam"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 1,
+            "module": "scipion_bridge.typed.proxy",
+            "source": "scipion_bridge.typed.proxy.Proxy",
+            "target": "object"
+        },
+        {
+            "resolver": "resolve_output_to_proxy",
+            "weight": 0,
+            "module": "__main__",
+            "source": "scipion_bridge.typed.proxy.Output",
+            "target": "__main__.Volume"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 1,
+            "module": "__main__",
+            "source": "scipion_bridge.typed.proxy.Output",
+            "target": "typing.Generic"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 2,
+            "module": "__main__",
+            "source": "scipion_bridge.typed.proxy.Output",
+            "target": "object"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 0,
+            "module": "__main__",
+            "source": "__main__.Volume",
+            "target": "__main__.Volume"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 1,
+            "module": "__main__",
+            "source": "__main__.Volume",
+            "target": "scipion_bridge.typed.proxy.Proxy"
+        },
+        {
+            "resolver": "_downcast",
+            "weight": 2,
+            "module": "__main__",
+            "source": "__main__.Volume",
+            "target": "object"
+        }
+    ]
+}

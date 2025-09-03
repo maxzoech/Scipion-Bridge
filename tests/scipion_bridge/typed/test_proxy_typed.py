@@ -19,6 +19,8 @@ from scipion_bridge.utils.arc import manager as arc_manager
 import pytest
 from typing import Optional, Tuple
 
+# logging.basicConfig(level=logging.DEBUG)
+
 
 class TempFileMock:
 
@@ -42,7 +44,9 @@ class Volume(Proxy):
         return ".vol"
 
 
-@pytest.mark.filterwarnings("ignore:Counting references for non-temporary files is deprecated")
+@pytest.mark.filterwarnings(
+    "ignore:Counting references for non-temporary files is deprecated"
+)
 def test_conversion_to_typed_proxy():
 
     container = Container()
@@ -232,6 +236,8 @@ def test_return_value_warning():
 
 def test_proxify_with_params():
 
+    logging.basicConfig(level=logging.DEBUG)
+
     @proxify
     def foo(
         inputs: ProxyParam,
@@ -248,7 +254,12 @@ def test_proxify_with_params():
 
     container = Container()
     container.wire(
-        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.typed.common", "scipion_bridge.utils.arc"]
+        modules=[
+            __name__,
+            "scipion_bridge.typed.proxy",
+            "scipion_bridge.typed.common",
+            "scipion_bridge.utils.arc",
+        ]
     )
 
     temp_file_mock = TempFileMock()
@@ -309,4 +320,4 @@ def test_combine_proxify_and_resolve():
 
 
 if __name__ == "__main__":
-    test_proxify_with_params()
+    test_resolve_proxy_multi_output()
