@@ -1,16 +1,43 @@
 import networkx as nx
 
-from typing import List, Iterable, Optional, Set, Tuple, Any
+from typing import (
+    List,
+    Optional,
+    Any,
+    Callable,
+    Generic,
+    TypeVar,
+)
 
-from functools import cmp_to_key
 import heapq as hq
+
+T = TypeVar("T")
+
+
+class PathfindingContainer(Generic[T]):
+
+    def __init__(self, value: T, previous: Optional[T], weight: int) -> None:
+
+        self.value = value
+        self.previous = previous
+        self.weight = weight
+
+    def __lt__(self, other):
+        return self.weight < other.weight
+
+
+def build_default_container(value: T, previous: Optional[T], weight: int):
+    return PathfindingContainer(value, previous, weight)
 
 
 def find_shortest_path(
     graph: nx.DiGraph,
-    origin,
-    destination,
+    origin: T,
+    destination: T,
     intermediate: Optional[Any] = None,
+    container_builder: Callable[
+        [T, Optional[T], int], PathfindingContainer
+    ] = build_default_container,
     weight: str = "weight",
     namespace: str = "module",
 ):
@@ -18,11 +45,21 @@ def find_shortest_path(
     if intermediate is not None:
 
         path_1 = find_shortest_path(
-            graph, origin, intermediate, weight=weight, namespace=namespace
+            graph,
+            origin,
+            intermediate,
+            weight=weight,
+            container_builder=container_builder,
+            namespace=namespace,
         )
 
         path_2 = find_shortest_path(
-            graph, intermediate, destination, weight=weight, namespace=namespace
+            graph,
+            intermediate,
+            destination,
+            weight=weight,
+            container_builder=container_builder,
+            namespace=namespace,
         )
 
         return path_1 + path_2[1:]
@@ -30,40 +67,34 @@ def find_shortest_path(
     if origin not in graph.nodes or destination not in graph.nodes:
         raise nx.exception.NodeNotFound()
 
-    distances = {}
     predecessors = {}
-
-    def __sort_fn(a, b):
-        return (a[0] > b[0]) - (a[0] < b[0])
-
-    key_fn = cmp_to_key(__sort_fn)  # type: ignore
-    heap = [key_fn((0, origin, None))]
+    heap = [container_builder(origin, None, 0)]
 
     hq.heapify(heap)
 
     while heap:
-        dist, node, predecessor = hq.heappop(heap).obj  # type: ignore
- 
-        if node in distances:
+        element = hq.heappop(heap)  # type: ignore
+
+        if element.value in predecessors:
             continue  # Already encountered before
 
-        distances[node] = dist
-        predecessors[node] = predecessor
+        predecessors[element.value] = element.previous
 
-        for neighbor in graph.neighbors(node):
-            if neighbor in distances:
+        for neighbor in graph.neighbors(element.value):
+            if neighbor in predecessors:
                 continue
 
-            cost: int = graph.get_edge_data(node, neighbor)[weight]
-            print(f"-{neighbor}, {dist+cost}")
+            cost = graph.get_edge_data(element.value, neighbor)[weight]
+            hq.heappush(
+                heap,
+                container_builder(neighbor, element.value, (element.weight + cost)),
+            )
 
-            hq.heappush(heap, key_fn((dist + cost, neighbor, node)))
-
-        if node == destination:
+        if element.value == destination:
             break
-
-    if destination not in predecessors.keys():
+    else:
         raise nx.NetworkXNoPath
+
     # Backtrack path
     def _find_path(path: List):
         node = path[0]

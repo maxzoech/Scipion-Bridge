@@ -73,8 +73,6 @@ def test_type_resolution_graph():
 
         from scipion_bridge.typed.resolve import registry
 
-        # registry._plot_graph(graph)
-
         path = find_shortest_path(
             graph,
             origin="scipion_bridge.typed.proxy.Output",
@@ -82,7 +80,12 @@ def test_type_resolution_graph():
             # intermediate="__main__.Volume",
         )
 
-        print(path)
+        assert path == [
+            "scipion_bridge.typed.proxy.Output",
+            "__main__.Volume",
+            "scipion_bridge.typed.proxy.Proxy",
+            "scipion_bridge.typed.proxy.FuncParam",
+        ]
 
 
 if __name__ == "__main__":
