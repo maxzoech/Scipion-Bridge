@@ -155,7 +155,12 @@ class Registry:
         return modules
 
     @staticmethod
-    def _namespace_from_symbol(*, module: str, qualname: str, strip_last=False):
+    def _namespace_from_symbol(
+        *, module: str, qualname: Optional[str], strip_last=False
+    ):
+        if not qualname:
+            return module
+
         path = f"{module}.{qualname}"
         if strip_last:
             path = path.split(".")[:-1]
@@ -176,7 +181,15 @@ class Registry:
         if namespace is None:
             frame = _find_calling_frame()
             module = frame.f_globals["__name__"]
-            name = frame.f_code.co_qualname
+            try:
+                name = frame.f_code.co_qualname
+            except AttributeError:
+                warnings.warn(
+                    "Local scopes are not supported below Python 3.11; Type resolution behavior might be different.",
+                    RuntimeWarning,
+                )
+                name = None
+
             namespace = Registry._namespace_from_symbol(
                 module=module, qualname=name, strip_last=True
             )
@@ -331,10 +344,24 @@ class Registry:
             module=calling_module, qualname=calling_func
         )
 
+        # The associated namespace is the namespace where the value we want to
+        # resolve.
+        # This useful when we use a symbol without directly importing the module
+        # where it was declared, e.g.
+        # import scipion_bridge
+        # ...
+        # value.typed(scipion_bridge.typed.volume.SpiderFile) <- we never imported Spider file
+        associated_namespace = Registry._namespace_from_symbol(
+            module=type(value).__module__, qualname=type(value).__qualname__
+        )
+        associated_namespace = _expand_namespace(associated_namespace, [])
+
         visible_modules = {
             v for v in map(_find_module, frame.f_globals.values()) if v is not None
         }
+
         visible_modules.add(calling_namespace)
+        visible_modules = visible_modules.union(associated_namespace)
 
         # Expand namespaces: "foo.bar.func" -> {foo, foo.bar, foo.bar.func}
         visible_modules = {m for n in visible_modules for m in _expand_namespace(n, [])}
