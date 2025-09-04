@@ -1,11 +1,11 @@
-from functools import wraps, partial
+import sys
 import inspect
 import networkx as nx
 import logging
 import warnings
 import time
 from collections import namedtuple
-from functools import reduce
+from functools import wraps, partial
 
 from ..func_params import extract_func_params
 from .dijkstra import find_shortest_path, PathfindingContainer
@@ -25,6 +25,12 @@ from typing import (
 )
 
 from typing_extensions import TypeVar, get_args
+
+if sys.version_info < (3, 11):
+    warnings.warn(
+        "Local scopes are not supported below Python 3.11; Type resolution behavior might be different.",
+        RuntimeWarning,
+    )
 
 ResolveStep = namedtuple("ResolveStep", ("func", "description"))
 
@@ -58,6 +64,13 @@ def _find_calling_frame():
             frame = frame.f_back
     else:
         raise RuntimeError("Could not find calling frame. This is a bug.")
+
+
+def _get_qualname(co_func) -> Optional[str]:
+    try:
+        return co_func.co_qualname
+    except AttributeError:
+        return None
 
 
 class ScopedPathfindingContainer(PathfindingContainer):
@@ -181,17 +194,9 @@ class Registry:
         if namespace is None:
             frame = _find_calling_frame()
             module = frame.f_globals["__name__"]
-            try:
-                name = frame.f_code.co_qualname
-            except AttributeError:
-                warnings.warn(
-                    "Local scopes are not supported below Python 3.11; Type resolution behavior might be different.",
-                    RuntimeWarning,
-                )
-                name = None
 
             namespace = Registry._namespace_from_symbol(
-                module=module, qualname=name, strip_last=True
+                module=module, qualname=_get_qualname(frame.f_code), strip_last=True
             )
 
         if self.graph.has_edge(origin, target):
@@ -340,17 +345,8 @@ class Registry:
         frame = _find_calling_frame()
         calling_module: str = frame.f_globals["__name__"]
 
-        try:
-            calling_func = frame.f_code.co_qualname
-        except AttributeError:
-            warnings.warn(
-                "Local scopes are not supported below Python 3.11; Type resolution behavior might be different.",
-                RuntimeWarning,
-            )
-            calling_func = None
-
         calling_namespace = Registry._namespace_from_symbol(
-            module=calling_module, qualname=calling_func
+            module=calling_module, qualname=_get_qualname(frame.f_code)
         )
 
         # The associated namespace is the namespace where the value we want to
@@ -456,7 +452,7 @@ def resolver(f):
 
     namespace = Registry._namespace_from_symbol(
         module=f.__module__,
-        qualname=f.__qualname__,
+        qualname=_get_qualname(f.__code__),  # f.__qualname__,
         strip_last=True,
     )
 

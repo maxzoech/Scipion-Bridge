@@ -1,6 +1,5 @@
 import sys
 import logging
-import scipion_bridge
 import scipion_bridge.typed.resolve as resolve
 from scipion_bridge.typed.resolve import ScopedPathfindingContainer as Container
 from scipion_bridge.typed.proxy import Proxy, Output
@@ -60,8 +59,6 @@ def test_unresolvable_types_error():
 
 
 def test_resolved_func():
-
-    logging.basicConfig(level=logging.DEBUG)
 
     @resolve.resolver
     def resolve_float_to_int(value: float) -> int:
@@ -266,4 +263,4 @@ def test_resolve_namespaces():
 
 
 if __name__ == "__main__":
-    test_resolve_namespaces()
+    test_resolved_func()
