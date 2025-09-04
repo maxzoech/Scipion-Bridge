@@ -269,7 +269,9 @@ def test_resolve_namespaces_recursive():
 
     @resolve.resolver
     def resolve_tuple_to_str_underline(value: tuple) -> str:
-        return "_".join([resolve.get_registry().resolve(v, astype=str) for v in value])
+        return "_".join(
+            [resolve.current_registry().resolve(v, astype=str) for v in value]
+        )
 
     def bar():
         @resolve.resolver
@@ -283,9 +285,15 @@ def test_resolve_namespaces_recursive():
         r = foo((42.0, 40.0, 5.0))
         return r
 
+    @resolve.resolve_params
+    def foo(bar: resolve.Resolve[str]):
+        return bar
+
     r = bar()
-    print(r)
-    # assert r == "84.0_80.0_10.0"
+    assert r == "84.0_80.0_10.0"
+
+    r = foo((42.0, 40.0, 5.0))
+    assert r == "42.0_40.0_5.0"
 
 
 if __name__ == "__main__":

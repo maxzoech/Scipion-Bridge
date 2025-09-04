@@ -1,4 +1,4 @@
-from .resolve import get_registry, resolver
+from .resolve import current_registry, resolver
 
 
 @resolver
@@ -8,4 +8,4 @@ def resolve_any_to_str(value: object) -> str:
 
 @resolver
 def resolve_tuple_to_str(value: tuple) -> str:
-    return " ".join([get_registry().resolve(v, astype=str) for v in value])
+    return " ".join([current_registry().resolve(v, astype=str) for v in value])

@@ -8,7 +8,7 @@ from scipion_bridge.typed import proxy, common
 from scipion_bridge.typed.resolve import (
     resolution_context,
     Resolve,
-    get_registry,
+    current_registry,
     Registry,
     resolver,
 )
@@ -92,7 +92,7 @@ def test_resolve_proxy_output():
     temp_file_mock = TempFileMock()
 
     with container.temp_file_provider.override(temp_file_mock):
-        p = get_registry().resolve(Output(Volume), astype=Proxy)
+        p = current_registry().resolve(Output(Volume), astype=Proxy)
         assert str(p.path) == "/tmp/temp_file_0.vol"
 
         del p

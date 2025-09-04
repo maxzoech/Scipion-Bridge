@@ -15,7 +15,7 @@ from ..func_params import extract_func_params
 
 from ..utils.arc import manager as arc_manager
 
-from .resolve import get_registry, resolve_params, resolver
+from .resolve import current_registry, resolve_params, resolver
 from typing import Optional, Generic, Type, Union, TYPE_CHECKING, Any
 from typing_extensions import TypeAlias, TypeVar, get_args, get_origin
 
@@ -118,7 +118,7 @@ class Output(Generic[T]):
         assert issubclass(dtype, Proxy)
         self.dtype = dtype
 
-        get_registry().add_resolver(Output, dtype, resolver=resolve_output_to_proxy)
+        current_registry().add_resolver(Output, dtype, resolver=resolve_output_to_proxy)
 
 
 if TYPE_CHECKING:
@@ -160,7 +160,7 @@ def proxify(f):
                 arg = args[0]
                 intermediate = arg if not arg == Any else None
 
-        return get_registry().resolve(
+        return current_registry().resolve(
             value, astype=FuncParam, intermediate=intermediate
         )
 

@@ -237,7 +237,7 @@ class Registry:
         if self.graph.has_edge(origin, target):
             edge = self.graph.edges[(origin, target)]
 
-            if edge["module"] == namespace and not resolver is edge["resolver"]:
+            if edge["module"] == namespace and resolver is not edge["resolver"]:
                 warnings.warn(
                     f"Attempted register a resolver for existing transform '{origin.__qualname__}' -> '{target.__qualname__}' ('{edge['resolver'].__qualname__}' vs '{resolver.__qualname__}')",
                     UserWarning,
@@ -493,7 +493,7 @@ DEFAULT_REGISTRY = Registry()
 CURRENT_CTX = None
 
 
-def get_registry() -> Registry:
+def current_registry() -> Registry:
     global CURRENT_CTX
 
     if CURRENT_CTX:
@@ -514,7 +514,7 @@ def resolver(f):
         strip_last=True,
     )
 
-    get_registry().add_resolver(in_dtype, out_dtype, f, namespace)
+    current_registry().add_resolver(in_dtype, out_dtype, f, namespace)
 
     return f
 
@@ -533,7 +533,7 @@ def resolve_params(f: Callable):
             target, constraint = args
 
             constraint = None if constraint == Any else constraint
-            value = get_registry().resolve(
+            value = current_registry().resolve(
                 value, astype=target, intermediate=constraint
             )
 

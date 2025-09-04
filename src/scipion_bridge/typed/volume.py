@@ -52,7 +52,7 @@ class SpiderFile(Proxy, ArrayConvertable, VolumeVisualizeable):
 
 if __name__ == "__main__":
     from pathlib import Path
-    from .resolve import registry
+    from .resolve import current_registry
 
     SpiderFile(Path("/path/to/file"))
-    registry._plot_graph()
+    current_registry()._plot_graph()
