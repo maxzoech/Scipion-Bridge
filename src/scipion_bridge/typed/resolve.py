@@ -5,6 +5,7 @@ import logging
 import warnings
 import time
 from collections import namedtuple
+from functools import reduce
 
 from ..func_params import extract_func_params
 from .dijkstra import find_shortest_path, PathfindingContainer
@@ -12,6 +13,7 @@ from .dijkstra import find_shortest_path, PathfindingContainer
 from typing import (
     Tuple,
     Set,
+    List,
     Type,
     Any,
     Generic,
@@ -60,16 +62,26 @@ def _find_calling_frame():
 
 class ScopedPathfindingContainer(PathfindingContainer):
 
+    ResolverNode = namedtuple("ResolverNode", ["resolver_fn", "module"])
+
     def __init__(
-        self, value: Any, previous: Optional[Any], weight: int, local_scope_name: str
+        self,
+        value: Optional[Any],
+        previous: Optional[Any],
+        weight: int,
+        incoming_edge_attributes: Optional[ResolverNode],
+        local_scope_name: str,
     ) -> None:
         super().__init__(value, previous, weight)
 
+        self.edge_attributes = incoming_edge_attributes
         self.local_scope_name = local_scope_name
 
     @property
     def is_local_scope(self):
-        return self.value["module"].startswith(self.local_scope_name)
+        assert self.edge_attributes is not None
+
+        return self.edge_attributes.module.startswith(self.local_scope_name)
 
     @property
     def resolution_priority(self):
@@ -81,16 +93,56 @@ class ScopedPathfindingContainer(PathfindingContainer):
     def __lt__(self, other):
         assert isinstance(other, ScopedPathfindingContainer)
 
+        assert self.edge_attributes is not None
+        assert other.edge_attributes is not None
+
         if not self.weight == other.weight:
             return self.weight < other.weight
         else:
             if not self.resolution_priority == other.resolution_priority:
                 return self.resolution_priority < other.resolution_priority
             else:
-                path_length = len(self.value["module"].split("."))
-                other_path_length = len(other.value["module"].split("."))
+
+                symbol_path = f"{self.edge_attributes.module}.{self.edge_attributes.resolver_fn.__qualname__}"
+                other_symbol_path = f"{other.edge_attributes.module}.{other.edge_attributes.resolver_fn.__qualname__}"
+
+                path_length = len(symbol_path.split("."))
+                other_path_length = len(other_symbol_path.split("."))
+
+                if (
+                    other_path_length == path_length
+                    and self.edge_attributes.resolver_fn
+                    is not other.edge_attributes.resolver_fn
+                ):
+
+                    warnings.warn(
+                        f"Found ambiguous resolvers {symbol_path} and {other_symbol_path} during type resolution.",
+                    )
 
                 return other_path_length < path_length
+
+
+def build_default_container(
+    graph: nx.DiGraph,
+    value: Type,
+    previous: Optional[Type],
+    weight: int,
+    local_scope_name: str,
+):
+    if not previous:
+        edge_attributes = None
+    else:
+        attrs = graph.get_edge_data(previous, value)
+        edge_attributes = ScopedPathfindingContainer.ResolverNode(
+            attrs["resolver"], attrs["module"]
+        )
+    return ScopedPathfindingContainer(
+        value,
+        previous,
+        weight,
+        edge_attributes,
+        local_scope_name,
+    )
 
 
 class Registry:
@@ -130,7 +182,11 @@ class Registry:
                     continue
 
                 self.graph.add_edge(
-                    subclass, dtype, resolver=_downcast, weight=weight, module=module
+                    subclass,
+                    dtype,
+                    resolver=_downcast,
+                    weight=weight,
+                    module=__package__,
                 )
 
         self.graph.add_edge(origin, target, resolver=resolver, weight=0, module=module)
@@ -145,7 +201,10 @@ class Registry:
         origin: Type[Origin],
         target: Type[Target],
         intermediate: Optional[Type[Intermediate]] = None,
+        local_scope_name: Optional[str] = None,
     ):
+        assert local_scope_name is not None
+
         def _make_step(edge, data):
             u, v = edge
             fn = data["resolver"]
@@ -176,8 +235,6 @@ class Registry:
                 f"'{origin.__qualname__}' could not be resolved as '{target.__qualname__}'"
             )
 
-        shortest_path = partial(nx.shortest_path, G=subgraph, weight="weight")
-
         try:
             path = find_shortest_path(
                 subgraph,
@@ -185,21 +242,10 @@ class Registry:
                 target,
                 intermediate,
                 weight="weight",
-                namespace="module",
+                container_builder=partial(
+                    build_default_container, local_scope_name=local_scope_name
+                ),
             )
-            # if intermediate is not None and not origin == intermediate:
-            #     path_to_intermediate = shortest_path(
-            #         source=upcast_origin, target=intermediate
-            #     )
-            #     path_to_end = shortest_path(source=intermediate, target=target)
-
-            #     assert isinstance(path_to_intermediate, list)
-            #     assert isinstance(path_to_end, list)
-
-            #     path = path_to_intermediate + path_to_end[1:]  # type: ignore
-            # else:
-            #     path = shortest_path(source=upcast_origin, target=target)
-
         except (nx.NetworkXNoPath, nx.NodeNotFound, StopIteration):
             raise TypeError(
                 f"'{origin.__qualname__}' could not be resolved as '{target.__qualname__}'"
@@ -247,14 +293,30 @@ class Registry:
             except AttributeError:
                 return None
 
+        def _expand_namespace(namespace: str, expanded: List[str]) -> Set[str]:
+            if not namespace:
+                return set(expanded)
+            else:
+                path = namespace.split(".")
+                head, tail = path[0], path[1:]
+
+                next_el = f"{expanded[-1]}.{head}" if expanded else head
+
+                return _expand_namespace(".".join(tail), expanded + [next_el])
+
         start = time.time()
 
         # Find imported modules to construct namespace
         frame = _find_calling_frame()
+        calling_namespace: str = frame.f_globals["__name__"]
+
         global_modules = {
             v for v in map(_find_module, frame.f_globals.values()) if v is not None
         }
-        global_modules.add(frame.f_globals["__name__"])
+        global_modules.add(calling_namespace)
+
+        # Expand namespaces: "foo.bar.func" -> {foo, foo.bar, foo.bar.func}
+        global_modules = {m for n in global_modules for m in _expand_namespace(n, [])}
 
         registered_modules = self.get_registered_modules()
 
@@ -268,11 +330,11 @@ class Registry:
         namespaces_desc = ", ".join(namespaces_desc).rstrip()
 
         logging.info(
-            f"Resolve '{type(value).__qualname__}' -> '{astype.__qualname__}'{intermediate_desc} with namespaces {namespaces_desc}"
+            f"Resolve '{type(value).__qualname__}' -> '{astype.__qualname__}'{intermediate_desc} with namespaces {namespaces_desc} (caller in '{calling_namespace}')"
         )
 
         resolve_fn = self.find_resolve_func(
-            namespaces, type(value), astype, intermediate
+            namespaces, type(value), astype, intermediate, calling_namespace
         )
         end_search = time.time()
 

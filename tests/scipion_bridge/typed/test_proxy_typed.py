@@ -309,7 +309,9 @@ def test_combine_proxify_and_resolve():
 
     temp_file_mock = TempFileMock()
 
-    with container.temp_file_provider.override(temp_file_mock):
+    with container.temp_file_provider.override(temp_file_mock), pytest.warns(
+        UserWarning
+    ):
         output_new = foo()
         assert str(output_new.path) == "/tmp/temp_file_0.custom"  # type: ignore
 
@@ -320,4 +322,4 @@ def test_combine_proxify_and_resolve():
 
 
 if __name__ == "__main__":
-    test_resolve_proxy_multi_output()
+    test_combine_proxify_and_resolve()

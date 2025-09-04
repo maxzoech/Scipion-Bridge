@@ -19,7 +19,10 @@ def test_basic_resolve():
     registry.add_resolver(object, str, lambda x: str(x))
     registry.add_resolver(float, int, lambda x: int(x))
 
-    func = registry.find_resolve_func({__name__}, float, str)
+    # Needs the "scipion_bridge.typed" namespace to find the "_downcast" transformation
+    func = registry.find_resolve_func(
+        {"scipion_bridge.typed", __name__}, float, str, local_scope_name=__name__
+    )
     resolved = func(2.5)
 
     assert resolved == "2.5"
@@ -31,7 +34,9 @@ def test_resolve_faulty_resolver():
     registry.add_resolver(float, int, lambda x: int(x))
 
     with pytest.raises(TypeError):
-        func = registry.find_resolve_func({__name__}, float, str)
+        func = registry.find_resolve_func(
+            {__name__}, float, str, local_scope_name="__main__"
+        )
         _ = func(2.5)
 
 
@@ -41,11 +46,15 @@ def test_unresolvable_types_error():
     registry.add_resolver(bool, int, lambda x: int(x))
 
     with pytest.raises(TypeError):
-        func = registry.find_resolve_func({__name__}, float, bool)
+        func = registry.find_resolve_func(
+            {__name__}, float, bool, local_scope_name="__main__"
+        )
         _ = func(2.5)
 
     with pytest.raises(TypeError):
-        func = registry.find_resolve_func({__name__}, float, str)
+        func = registry.find_resolve_func(
+            {__name__}, float, str, local_scope_name="__main__"
+        )
         _ = func(2.5)
 
 
@@ -108,27 +117,43 @@ def test_pathfinding_container_ordering():
 
     candidates = [
         Container(
-            {"name": "resolver_generic", "module": "other_module"},
+            "B",
             None,
             weight=0,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("resolver_generic"), "other_module"
+            ),
             local_scope_name="__main__",
         ),
         Container(
-            {"name": "resolver", "module": "other_module.foo"},
+            "B",
             None,
             weight=0,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("resolver"), "other_module.foo"
+            ),
             local_scope_name="__main__",
         ),
         Container(
-            {"name": "_downcast", "module": "__main__"},
+            "C",
             None,
             weight=1,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("_downcast"), "__main__"
+            ),
             local_scope_name="__main__",
         ),
     ]
 
     sorted_candidates = sorted(candidates, reverse=False)
-    assert sorted_candidates[0].value["name"] == "resolver"
+    assert sorted_candidates[0].edge_attributes.resolver_fn.name == "resolver"  # type: ignore
+
+
+class FnStub:
+
+    def __init__(self, name) -> None:
+        self.name = name
+        self.__qualname__ = name
 
 
 def test_pathfinding_container_ordering_local_scope_shadowing():
@@ -162,39 +187,54 @@ def test_pathfinding_container_ordering_local_scope_shadowing():
 
     candidates = [
         Container(
-            {"name": "resolver_generic", "module": "other_module"},
+            "B",
             None,
             weight=0,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("resolver_generic"), "other_module"
+            ),
             local_scope_name="__main__",
         ),
         Container(
-            {"name": "resolver", "module": "other_module.foo"},
+            "B",
             None,
             weight=0,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("resolver"), "other_module.foo"
+            ),
             local_scope_name="__main__",
         ),
         Container(
-            {"name": "_downcast", "module": "__main__"},
+            "C",
             None,
             weight=1,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("_downcast"), "__main__"
+            ),
             local_scope_name="__main__",
         ),
         Container(
-            {"name": "resolve_local", "module": "__main__"},
+            "B",
             None,
             weight=0,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("resolve_local"), "__main__"
+            ),
             local_scope_name="__main__",
         ),
         Container(
-            {"name": "resolve_local_specific", "module": "__main__.bar"},
+            "B",
             None,
             weight=0,
+            incoming_edge_attributes=Container.ResolverNode(
+                FnStub("resolve_local_specific"), "__main__.bar"
+            ),
             local_scope_name="__main__",
         ),
     ]
 
     sorted_candidates = sorted(candidates, reverse=False)
-    assert sorted_candidates[0].value["name"] == "resolve_local_specific"
+    assert sorted_candidates[0].edge_attributes.resolver_fn.name == "resolve_local_specific"  # type: ignore
 
 
 # def test_resolve_namespaces():

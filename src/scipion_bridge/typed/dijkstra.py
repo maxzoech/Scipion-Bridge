@@ -26,7 +26,11 @@ class PathfindingContainer(Generic[T]):
         return self.weight < other.weight
 
 
-def build_default_container(value: T, previous: Optional[T], weight: int):
+def build_default_container(
+    graph: nx.DiGraph, value: T, previous: Optional[T], weight: int
+):
+    del graph
+
     return PathfindingContainer(value, previous, weight)
 
 
@@ -36,10 +40,9 @@ def find_shortest_path(
     destination: T,
     intermediate: Optional[Any] = None,
     container_builder: Callable[
-        [T, Optional[T], int], PathfindingContainer
+        [nx.DiGraph, T, Optional[T], int], PathfindingContainer
     ] = build_default_container,
     weight: str = "weight",
-    namespace: str = "module",
 ):
 
     if intermediate is not None:
@@ -50,7 +53,6 @@ def find_shortest_path(
             intermediate,
             weight=weight,
             container_builder=container_builder,
-            namespace=namespace,
         )
 
         path_2 = find_shortest_path(
@@ -59,7 +61,6 @@ def find_shortest_path(
             destination,
             weight=weight,
             container_builder=container_builder,
-            namespace=namespace,
         )
 
         return path_1 + path_2[1:]
@@ -68,7 +69,7 @@ def find_shortest_path(
         raise nx.exception.NodeNotFound()
 
     predecessors = {}
-    heap = [container_builder(origin, None, 0)]
+    heap = [container_builder(graph, origin, None, 0)]
 
     hq.heapify(heap)
 
@@ -87,7 +88,9 @@ def find_shortest_path(
             cost = graph.get_edge_data(element.value, neighbor)[weight]
             hq.heappush(
                 heap,
-                container_builder(neighbor, element.value, (element.weight + cost)),
+                container_builder(
+                    graph, neighbor, element.value, (element.weight + cost)
+                ),
             )
 
         if element.value == destination:
