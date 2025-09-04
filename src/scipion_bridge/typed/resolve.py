@@ -154,22 +154,37 @@ class Registry:
         modules = {v[2] for v in self.graph.edges.data("module")}  # type: ignore
         return modules
 
+    @staticmethod
+    def _namespace_from_symbol(*, module: str, qualname: str, strip_last=False):
+        path = f"{module}.{qualname}"
+        if strip_last:
+            path = path.split(".")[:-1]
+            if path[-1] == "<locals>":
+                path = path[:-1]
+            path = ".".join(path)
+
+        return path  #
+
     def add_resolver(
         self,
         origin: Type[Origin],
         target: Type[Origin],
         resolver: Callable,
-        module: Optional[str] = None,
+        namespace: Optional[str] = None,
     ):
 
-        if module is None:
+        if namespace is None:
             frame = _find_calling_frame()
             module = frame.f_globals["__name__"]
+            name = frame.f_code.co_qualname
+            namespace = Registry._namespace_from_symbol(
+                module=module, qualname=name, strip_last=True
+            )
 
         if self.graph.has_edge(origin, target):
             edge = self.graph.edges[(origin, target)]
 
-            if edge["module"] == module and not resolver is edge["resolver"]:
+            if edge["module"] == namespace and not resolver is edge["resolver"]:
                 warnings.warn(
                     f"Attempted register a resolver for existing transform '{origin.__qualname__}' -> '{target.__qualname__}' ('{edge['resolver'].__qualname__}' vs '{resolver.__qualname__}')",
                     UserWarning,
@@ -189,7 +204,9 @@ class Registry:
                     module=__package__,
                 )
 
-        self.graph.add_edge(origin, target, resolver=resolver, weight=0, module=module)
+        self.graph.add_edge(
+            origin, target, resolver=resolver, weight=0, module=namespace
+        )
 
         # Add edges to downcast data
         _add_downcasts(origin)
@@ -308,19 +325,28 @@ class Registry:
 
         # Find imported modules to construct namespace
         frame = _find_calling_frame()
-        calling_namespace: str = frame.f_globals["__name__"]
+        calling_module: str = frame.f_globals["__name__"]
+        calling_func: str = frame.f_code.co_qualname
+        calling_namespace = Registry._namespace_from_symbol(
+            module=calling_module, qualname=calling_func
+        )
 
-        global_modules = {
+        visible_modules = {
             v for v in map(_find_module, frame.f_globals.values()) if v is not None
         }
-        global_modules.add(calling_namespace)
+        visible_modules.add(calling_namespace)
 
         # Expand namespaces: "foo.bar.func" -> {foo, foo.bar, foo.bar.func}
-        global_modules = {m for n in global_modules for m in _expand_namespace(n, [])}
+        visible_modules = {m for n in visible_modules for m in _expand_namespace(n, [])}
 
+        # Get the namespaces registered in the graph and expand
         registered_modules = self.get_registered_modules()
+        registered_modules = {
+            m for n in registered_modules for m in _expand_namespace(n, [])
+        }
 
-        namespaces = global_modules & registered_modules
+        # The union of the visible modules and registered modules is the available namespace
+        namespaces = visible_modules & registered_modules
 
         intermediate_desc = (
             f" (via '{intermediate.__qualname__}')" if intermediate is not None else ""
@@ -392,7 +418,13 @@ def resolver(f):
     in_dtype = f.__annotations__["value"]
     out_dtype = f.__annotations__["return"]
 
-    registry.add_resolver(in_dtype, out_dtype, f, str(f.__module__))
+    namespace = Registry._namespace_from_symbol(
+        module=f.__module__,
+        qualname=f.__qualname__,
+        strip_last=True,
+    )
+
+    registry.add_resolver(in_dtype, out_dtype, f, namespace)
 
     return f
 

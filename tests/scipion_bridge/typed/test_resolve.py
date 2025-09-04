@@ -237,28 +237,30 @@ def test_pathfinding_container_ordering_local_scope_shadowing():
     assert sorted_candidates[0].edge_attributes.resolver_fn.name == "resolve_local_specific"  # type: ignore
 
 
-# def test_resolve_namespaces():
+def test_resolve_namespaces():
 
-#     logging.getLogger().setLevel(logging.DEBUG)
+    def bar():
+        @resolve.resolver
+        def resolve_float(value: float) -> str:
+            return str(value * 2)
 
-#     def bar():
-#         # @resolve.resolver
-#         # def resolve_float(value: float) -> str:
-#         #     return str(value * 2)
+        @resolve.resolve_params
+        def foo(bar: resolve.Resolve[str]):
+            return bar
 
+        r = foo(42.0)
+        return r
 
-#         @resolve.resolve_params
-#         def foo(bar: resolve.Resolve[str]):
-#             print(bar)
+    @resolve.resolve_params
+    def foo(bar: resolve.Resolve[str]):
+        return bar
 
-#         r = foo((42.0, 41.0, 4.0))
-#         return r
+    r = bar()
+    assert r == "84.0"
 
-#     # resolve.registry._plot_graph()
-
-#     r = bar()
-#     # print(r)
+    r = foo(42.0)
+    assert r == "42.0"
 
 
 if __name__ == "__main__":
-    test_resolved_func()
+    test_resolve_namespaces()
