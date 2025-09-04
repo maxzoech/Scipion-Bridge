@@ -1,5 +1,6 @@
 import sys
 import inspect
+import textwrap
 import networkx as nx
 import logging
 import warnings
@@ -33,6 +34,9 @@ if sys.version_info < (3, 11):
     )
 
 ResolveStep = namedtuple("ResolveStep", ("func", "description"))
+ResolveContext = namedtuple(
+    "ResolveContext", ("registry", "namespaces", "caller_namespace", "recursion_level")
+)
 
 Target = TypeVar("Target")
 Origin = TypeVar("Origin")
@@ -156,6 +160,37 @@ def build_default_container(
         edge_attributes,
         local_scope_name,
     )
+
+
+class resolution_context:
+
+    def __init__(
+        self, registry: "Registry", namespace: Set[str], caller_namespace: str
+    ):
+
+        global CURRENT_CTX
+        self._old_context = CURRENT_CTX
+
+        if self._old_context is None:
+            CURRENT_CTX = ResolveContext(
+                registry, namespace, caller_namespace, recursion_level=0
+            )
+        else:
+            CURRENT_CTX = ResolveContext(
+                self._old_context.registry,
+                self._old_context.namespaces,
+                self._old_context.caller_namespace,
+                recursion_level=self._old_context.recursion_level + 1,
+            )
+
+    def __enter__(self):
+        global CURRENT_CTX
+
+        return CURRENT_CTX
+
+    def __exit__(self, *args, **kws):
+        global CURRENT_CTX
+        CURRENT_CTX = self._old_context
 
 
 class Registry:
@@ -379,28 +414,41 @@ class Registry:
 
         # The union of the visible modules and registered modules is the available namespace
         namespaces = visible_modules & registered_modules
+        with resolution_context(self, namespaces, calling_namespace) as context:
+            assert context is not None
 
-        intermediate_desc = (
-            f" (via '{intermediate.__qualname__}')" if intermediate is not None else ""
-        )
+            intermediate_desc = (
+                f" (via '{intermediate.__qualname__}')"
+                if intermediate is not None
+                else ""
+            )
 
-        namespaces_desc = [f"'{n}'" for n in namespaces]
-        namespaces_desc = ", ".join(namespaces_desc).rstrip()
+            namespaces_desc = [f"'{n}'" for n in context.namespaces]
+            namespaces_desc = ", ".join(namespaces_desc).rstrip()
 
-        logging.info(
-            f"Resolve '{type(value).__qualname__}' -> '{astype.__qualname__}'{intermediate_desc} with namespaces {namespaces_desc} (caller in '{calling_namespace}')"
-        )
+            indent = " " * 4 * context.recursion_level
 
-        resolve_fn = self.find_resolve_func(
-            namespaces, type(value), astype, intermediate, calling_namespace
-        )
-        end_search = time.time()
+            logging.info(
+                f"{indent}Resolve '{type(value).__qualname__}' -> '{astype.__qualname__}'{intermediate_desc} (caller in '{context.caller_namespace}')",
+            )
 
-        search_time = end_search - start
-        search_time_ms = search_time * 1_000
+            logging.debug(f"{indent}Namespace: {namespaces_desc}")
 
-        resolved = resolve_fn(value)
-        end = time.time()
+            resolve_fn = self.find_resolve_func(
+                context.namespaces,
+                type(value),
+                astype,
+                intermediate,
+                context.caller_namespace,
+            )
+
+            end_search = time.time()
+
+            search_time = end_search - start
+            search_time_ms = search_time * 1_000
+
+            resolved = resolve_fn(value)
+            end = time.time()
 
         total = end - start
         total_ms = total * 1_000
@@ -441,7 +489,17 @@ class Registry:
         plt.show()
 
 
-registry = Registry()
+DEFAULT_REGISTRY = Registry()
+CURRENT_CTX = None
+
+
+def get_registry() -> Registry:
+    global CURRENT_CTX
+
+    if CURRENT_CTX:
+        return CURRENT_CTX.registry
+    else:
+        return DEFAULT_REGISTRY
 
 
 def resolver(f):
@@ -456,7 +514,7 @@ def resolver(f):
         strip_last=True,
     )
 
-    registry.add_resolver(in_dtype, out_dtype, f, namespace)
+    get_registry().add_resolver(in_dtype, out_dtype, f, namespace)
 
     return f
 
@@ -475,7 +533,9 @@ def resolve_params(f: Callable):
             target, constraint = args
 
             constraint = None if constraint == Any else constraint
-            value = registry.resolve(value, astype=target, intermediate=constraint)
+            value = get_registry().resolve(
+                value, astype=target, intermediate=constraint
+            )
 
         return param, value
 

@@ -71,8 +71,6 @@ def test_type_resolution_graph():
             data = {u: v for u, v in edge.items() if u not in {"source", "target"}}
             graph.add_edge(edge["source"], edge["target"], **data)
 
-        from scipion_bridge.typed.resolve import registry
-
         path = find_shortest_path(
             graph,
             origin="scipion_bridge.typed.proxy.Output",

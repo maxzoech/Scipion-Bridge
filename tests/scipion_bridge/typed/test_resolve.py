@@ -262,5 +262,31 @@ def test_resolve_namespaces():
     assert r == "42.0"
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11 or higher")
+def test_resolve_namespaces_recursive():
+
+    logging.basicConfig(level=logging.INFO)
+
+    @resolve.resolver
+    def resolve_tuple_to_str_underline(value: tuple) -> str:
+        return "_".join([resolve.get_registry().resolve(v, astype=str) for v in value])
+
+    def bar():
+        @resolve.resolver
+        def resolve_float(value: float) -> str:
+            return str(value * 2)
+
+        @resolve.resolve_params
+        def foo(bar: resolve.Resolve[str]):
+            return bar
+
+        r = foo((42.0, 40.0, 5.0))
+        return r
+
+    r = bar()
+    print(r)
+    # assert r == "84.0_80.0_10.0"
+
+
 if __name__ == "__main__":
-    test_resolved_func()
+    test_resolve_namespaces_recursive()
