@@ -1,3 +1,4 @@
+import sys
 import logging
 import scipion_bridge
 import scipion_bridge.typed.resolve as resolve
@@ -156,6 +157,7 @@ class FnStub:
         self.__qualname__ = name
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11 or higher")
 def test_pathfinding_container_ordering_local_scope_shadowing():
     """
     # Module executed from command line, so __name__ == "__main__"
@@ -237,6 +239,7 @@ def test_pathfinding_container_ordering_local_scope_shadowing():
     assert sorted_candidates[0].edge_attributes.resolver_fn.name == "resolve_local_specific"  # type: ignore
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="Requires Python 3.11 or higher")
 def test_resolve_namespaces():
 
     def bar():

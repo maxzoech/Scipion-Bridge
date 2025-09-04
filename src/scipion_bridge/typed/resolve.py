@@ -339,7 +339,16 @@ class Registry:
         # Find imported modules to construct namespace
         frame = _find_calling_frame()
         calling_module: str = frame.f_globals["__name__"]
-        calling_func: str = frame.f_code.co_qualname
+
+        try:
+            calling_func = frame.f_code.co_qualname
+        except AttributeError:
+            warnings.warn(
+                "Local scopes are not supported below Python 3.11; Type resolution behavior might be different.",
+                RuntimeWarning,
+            )
+            calling_func = None
+
         calling_namespace = Registry._namespace_from_symbol(
             module=calling_module, qualname=calling_func
         )
