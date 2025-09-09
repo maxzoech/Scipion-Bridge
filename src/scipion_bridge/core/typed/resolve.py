@@ -8,7 +8,7 @@ import time
 from collections import namedtuple
 from functools import wraps, partial
 
-from ..func_params import extract_func_params
+from ..utils.func_params import extract_func_params
 from .dijkstra import find_shortest_path, PathfindingContainer
 
 from typing import (

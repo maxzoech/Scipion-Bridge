@@ -4,8 +4,8 @@ import warnings
 from pathlib import Path
 
 from dependency_injector.wiring import Provide, inject
-from ..utils.environment.container import Container
-from ..utils.environment.temp_files import TemporaryFilesProvider
+from ..environment.container import Container
+from ..environment.temp_files import TemporaryFilesProvider
 
 from typing import Optional
 

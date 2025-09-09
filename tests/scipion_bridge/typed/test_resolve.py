@@ -1,10 +1,10 @@
 import sys
 import logging
-import scipion_bridge.typed.resolve as resolve
-from scipion_bridge.typed.resolve import ScopedPathfindingContainer as Container
-from scipion_bridge.typed.proxy import Proxy, Output
+import scipion_bridge.core.typed.resolve as resolve
+from scipion_bridge.core.typed.resolve import ScopedPathfindingContainer as Container
+from scipion_bridge.core.typed.proxy import Proxy, Output
 
-from scipion_bridge.typed import common
+from scipion_bridge.core.typed import common
 
 from typing import Any
 
@@ -21,7 +21,7 @@ def test_basic_resolve():
 
     # Needs the "scipion_bridge.typed" namespace to find the "_downcast" transformation
     func = registry.find_resolve_func(
-        {"scipion_bridge.typed", __name__}, float, str, local_scope_name=__name__
+        {"scipion_bridge.core.typed", __name__}, float, str, local_scope_name=__name__
     )
     resolved = func(2.5)
 

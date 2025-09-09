@@ -6,7 +6,7 @@ import pytest
 
 import networkx as nx
 
-from scipion_bridge.typed.dijkstra import find_shortest_path
+from scipion_bridge.core.typed.dijkstra import find_shortest_path
 
 
 def test_simple_graph():

@@ -1,8 +1,8 @@
 import os
 
 from pathlib import Path
-from scipion_bridge.utils.arc import FileReferenceCounter
-from scipion_bridge.utils.environment.container import Container
+from scipion_bridge.core.utils.arc import FileReferenceCounter
+from scipion_bridge.core.environment.container import Container
 
 import pytest
 
@@ -27,7 +27,7 @@ def test_reference_counting():
 
     container = Container()
     container.wire(
-        modules=[__name__, "scipion_bridge.typed.proxy", "scipion_bridge.utils.arc"]
+        modules=[__name__, "scipion_bridge.core.typed.proxy", "scipion_bridge.core.utils.arc"]
     )
 
     temp_file_mock = TempFileMock()

@@ -1,17 +1,17 @@
 from functools import partial
 
 import scipion_bridge
-import scipion_bridge.typed
-import scipion_bridge.typed.volume
-from ..external_call import foreign_function, Domain
-from ..typed.proxy import proxify, Proxy, Output, ResolveParam
-from ..typed.array import ArrayConvertable
-from ..typed.resolve import Resolve
+import scipion_bridge.core.typed
+import scipion_bridge.core.typed.volume
+from ..core.utils.external_call import foreign_function, Domain
+from ..core.typed.proxy import proxify, Proxy, Output, ResolveParam
+from ..core.typed.array import ArrayConvertable
+from ..core.typed.resolve import Resolve
 
 # from ..typed.volume import SpiderFile
 
 xmipp_func = partial(foreign_function, domain=Domain("XMIPP", ["scipion", "run"]))
-
+# xmipp_parallel_func = partial(foreign_function, Domain("XMIPP-MIP", []))
 
 # @proxify
 # @partial(
@@ -76,7 +76,7 @@ def xmipp_volume_align(
     embdb_map: str,
     volume: str,
     local: bool,
-    apply: Resolve[Proxy, Output] = Output(scipion_bridge.typed.volume.SpiderFile)
+    apply: Resolve[Proxy, Output] = Output(scipion_bridge.core.typed.volume.SpiderFile)
 ):
     pass
 
@@ -90,9 +90,9 @@ def xmipp_volume_align(
     },
 )
 def xmipp_transform_threshold(
-    inputs: ResolveParam[scipion_bridge.typed.volume.SpiderFile],
-    outputs: ResolveParam[scipion_bridge.typed.volume.SpiderFile] = Output(
-        scipion_bridge.typed.volume.SpiderFile
+    inputs: ResolveParam[scipion_bridge.core.typed.volume.SpiderFile],
+    outputs: ResolveParam[scipion_bridge.core.typed.volume.SpiderFile] = Output(
+        scipion_bridge.core.typed.volume.SpiderFile
     ),
     *,
     select: str,

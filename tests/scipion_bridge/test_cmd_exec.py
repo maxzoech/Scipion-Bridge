@@ -1,8 +1,8 @@
 import os
 import pytest
 import tempfile
-from scipion_bridge.external_call import Domain
-from scipion_bridge.utils.environment.cmd_exec import ShellExecProvider
+from scipion_bridge.core.utils.external_call import Domain
+from scipion_bridge.core.environment.cmd_exec import ShellExecProvider
 from subprocess import PIPE
 
 PYTHON_DOMAIN = Domain("PY", [])

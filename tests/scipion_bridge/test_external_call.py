@@ -1,8 +1,8 @@
 import itertools
 from functools import partial
 
-from scipion_bridge.external_call import foreign_function, Domain
-from scipion_bridge.utils.environment.container import Container
+from scipion_bridge.core.utils.external_call import foreign_function, Domain
+from scipion_bridge.core.environment.container import Container
 
 import pytest
 from pytest_mock import MockerFixture
