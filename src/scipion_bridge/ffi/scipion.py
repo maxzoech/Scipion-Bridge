@@ -4,7 +4,7 @@ import scipion_bridge
 import scipion_bridge.core.typed
 import scipion_bridge.core.typed.volume
 from ..core.utils.external_call import foreign_function, Domain
-from ..core.typed.proxy import proxify, Proxy, Output, ResolveParam
+from ..core.typed.proxy import proxify, Proxy, Output, ProxyParam
 from ..core.typed.array import ArrayConvertable
 from ..core.typed.resolve import Resolve
 
@@ -90,8 +90,8 @@ def xmipp_volume_align(
     },
 )
 def xmipp_transform_threshold(
-    inputs: ResolveParam[scipion_bridge.core.typed.volume.SpiderFile],
-    outputs: ResolveParam[scipion_bridge.core.typed.volume.SpiderFile] = Output(
+    inputs: ProxyParam[scipion_bridge.core.typed.volume.SpiderFile],
+    outputs: ProxyParam[scipion_bridge.core.typed.volume.SpiderFile] = Output(
         scipion_bridge.core.typed.volume.SpiderFile
     ),
     *,

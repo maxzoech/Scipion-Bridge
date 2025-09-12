@@ -14,7 +14,7 @@ from scipion_bridge.core.typed.resolve import (
 
 from scipion_bridge.core.typed import proxy, common
 from scipion_bridge.core.typed.proxy import proxify
-from scipion_bridge.core.typed.proxy import Proxy, Output, ResolveParam, namedproxy
+from scipion_bridge.core.typed.proxy import Proxy, Output, ProxyParam, namedproxy
 from scipion_bridge.core.environment.container import Container
 from scipion_bridge.core.utils.arc import manager as arc_manager
 
@@ -144,8 +144,8 @@ def test_resolve_proxified():
 
     @proxify
     def foo(
-        inputs: ResolveParam[TextFile],
-        outputs: ResolveParam = Output(TextFile),
+        inputs: ProxyParam[TextFile],
+        outputs: ProxyParam = Output(TextFile),
     ) -> Optional[proxy.Proxy]:
         assert inputs == "/path/to/input.txt"
         assert outputs == "/path/to/output.txt"
@@ -263,7 +263,7 @@ def test_proxify_with_params():
 
     @proxify
     def foo(
-        inputs: ResolveParam[TextFile],
+        inputs: ProxyParam[TextFile],
         outputs: Resolve[Proxy, Output] = Output(Volume),
         bar: Optional[Tuple] = None,
         *,
@@ -299,7 +299,7 @@ def test_proxify_with_params():
 def test_resolve_proxify_with_type_error():
 
     @proxify
-    def foo(inputs: ResolveParam[TextFile]):
+    def foo(inputs: ProxyParam[TextFile]):
         assert inputs == "/path/to/text_file.txt"
 
     with pytest.raises(TypeError):
@@ -335,7 +335,7 @@ def test_combine_proxify_and_resolve():
     data = np.random.uniform(1.0, 1.0, size=[16, 16, 16])
 
     @proxify
-    def foo(inputs: proxy.ResolveParam[MyVolume, np.ndarray] = Output(MyVolume)):
+    def foo(inputs: proxy.ProxyParam[MyVolume, np.ndarray] = Output(MyVolume)):
         assert inputs == "/tmp/temp_file_0.custom"
 
     container = Container()
@@ -364,7 +364,7 @@ def test_named_proxy():
     PosFile = namedproxy("PosFile", file_ext=".pos")
 
     @proxify
-    def foo(position: ResolveParam[PosFile], result: ResolveParam = Output(PosFile)):
+    def foo(position: ProxyParam[PosFile], result: ProxyParam = Output(PosFile)):
         assert position == "/path/to/position.pos"
 
     container = Container()
