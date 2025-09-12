@@ -19,6 +19,7 @@ from .resolve import current_registry, resolve_params, resolver
 from typing import Optional, Generic, Type, Union, TYPE_CHECKING, Any
 from typing_extensions import TypeAlias, TypeVar, get_args, get_origin
 
+
 Casted = TypeVar("Casted")
 T = TypeVar("T")
 
@@ -121,6 +122,20 @@ class Output(Generic[T]):
         current_registry().add_resolver(Output, dtype, resolver=resolve_output_to_proxy)
 
 
+def namedproxy(typename: str, *, file_ext: str):
+    if not typename.isidentifier():
+        raise ValueError("The typename must be a valid identifier")
+
+    @classmethod
+    def file_ext_func(cls) -> Optional[str]:
+        return file_ext
+
+    proxy_subclass = type(typename, (Proxy,), {})
+    proxy_subclass.file_ext = file_ext_func  # type: ignore
+
+    return proxy_subclass
+
+
 if TYPE_CHECKING:
 
     # class ResolveParam():
@@ -131,9 +146,6 @@ else:
 
     class ResolveParam(Generic[Intermediate, Origin]):
         pass  # Marker Type
-
-
-ProxyParam: TypeAlias = Union[Proxy, Path, Output]
 
 
 def proxify(f):
@@ -223,18 +235,14 @@ def resolve_proxy_to_func_param(value: Proxy) -> FuncParam:
     return FuncParam(str(value.path), type(value), managed_proxy=value.managed)
 
 
-@inject
+@resolver
+def resolve_path_to_untyped_proxy(value: Path) -> Proxy:
+    return Proxy(value)
+
+
 def resolve_output_to_proxy(
     value: Output,
-    temp_file_provider: TemporaryFilesProvider = Provide[Container.temp_file_provider],
 ) -> Proxy:
-
-    # file_ext = value.dtype.file_ext()
-    # file_ext = file_ext if file_ext is not None else ""
-
-    # temp_file = temp_file_provider.new_temporary_file(file_ext)
-
-    # new_proxy = value.dtype(Path(temp_file), managed=True)
 
     new_proxy = value.dtype.new_temporary_proxy()
 

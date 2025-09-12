@@ -3,7 +3,6 @@ import logging
 import warnings
 from pathlib import Path
 
-from scipion_bridge.core.typed import proxy, common
 
 from scipion_bridge.core.typed.resolve import (
     resolution_context,
@@ -12,13 +11,15 @@ from scipion_bridge.core.typed.resolve import (
     Registry,
     resolver,
 )
+
+from scipion_bridge.core.typed import proxy, common
 from scipion_bridge.core.typed.proxy import proxify
-from scipion_bridge.core.typed.proxy import Proxy, ProxyParam, Output
+from scipion_bridge.core.typed.proxy import Proxy, Output, ResolveParam, namedproxy
 from scipion_bridge.core.environment.container import Container
 from scipion_bridge.core.utils.arc import manager as arc_manager
 
 import pytest
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 # logging.basicConfig(level=logging.DEBUG)
 
@@ -43,6 +44,13 @@ class Volume(Proxy):
     @classmethod
     def file_ext(cls):
         return ".vol"
+
+
+class TextFile(Proxy):
+
+    @classmethod
+    def file_ext(cls) -> Optional[str]:
+        return ".txt"
 
 
 @pytest.mark.filterwarnings(
@@ -106,13 +114,6 @@ def test_resolve_proxy_output():
         del p
 
 
-class TextFile(Proxy):
-
-    @classmethod
-    def file_ext(cls) -> Optional[str]:
-        return ".txt"
-
-
 def test_resolve_proxy():
     import os
     from pathlib import Path
@@ -143,13 +144,14 @@ def test_resolve_proxified():
 
     @proxify
     def foo(
-        inputs: ProxyParam, outputs: ProxyParam = Output(TextFile)
+        inputs: ResolveParam,
+        outputs: ResolveParam = Output(TextFile),
     ) -> Optional[proxy.Proxy]:
         assert inputs == "/path/to/input.txt"
         assert outputs == "/path/to/output.txt"
 
-    input_proxy = proxy.Proxy(Path("/path/to/input.txt"))
-    output_proxy = proxy.Proxy(Path("/path/to/output.txt"))
+    input_proxy = TextFile(Path("/path/to/input.txt"))
+    output_proxy = TextFile(Path("/path/to/output.txt"))
 
     out = foo(input_proxy, output_proxy)
     assert out is not None
@@ -257,11 +259,11 @@ def test_return_value_warning():
 
 def test_proxify_with_params():
 
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
 
     @proxify
     def foo(
-        inputs: ProxyParam,
+        inputs: ResolveParam[Proxy],
         outputs: Resolve[Proxy, Output] = Output(Volume),
         bar: Optional[Tuple] = None,
         *,
@@ -334,9 +336,7 @@ def test_combine_proxify_and_resolve():
 
     temp_file_mock = TempFileMock()
 
-    with container.temp_file_provider.override(temp_file_mock), pytest.warns(
-        UserWarning
-    ):
+    with container.temp_file_provider.override(temp_file_mock):
         output_new = foo()
         assert str(output_new.path) == "/tmp/temp_file_0.custom"  # type: ignore
 
@@ -345,6 +345,30 @@ def test_combine_proxify_and_resolve():
 
         del output_new, output_numpy
 
+def test_named_proxy():
+
+    PosFile = namedproxy("PosFile", file_ext=".pos")
+
+    @proxify
+    def foo(position: ResolveParam[PosFile], result: ResolveParam = Output(PosFile)):
+        assert position == "/path/to/position.pos"
+
+    container = Container()
+    container.wire(
+        modules=[
+            __name__,
+            "scipion_bridge.core.typed.proxy",
+            "scipion_bridge.core.utils.arc",
+        ]
+    )
+
+    temp_file_mock = TempFileMock()
+
+    with container.temp_file_provider.override(temp_file_mock):
+        result = foo(PosFile(path=Path("/path/to/position.pos")))
+        assert result.managed == True  # type: ignore
+        assert result.managed == True  # type: ignore
+
 
 if __name__ == "__main__":
-    test_combine_proxify_and_resolve()
+    test_named_proxy()

@@ -131,10 +131,11 @@ class ScopedPathfindingContainer(PathfindingContainer):
                     and self.edge_attributes.resolver_fn
                     is not other.edge_attributes.resolver_fn
                 ):
+                    pass
 
-                    warnings.warn(
-                        f"Found ambiguous resolvers {symbol_path} and {other_symbol_path} during type resolution.",
-                    )
+                    # warnings.warn(
+                    #     f"Found ambiguous resolvers {symbol_path} and {other_symbol_path} during type resolution.",
+                    # )
 
                 return other_path_length < path_length
 
@@ -234,6 +235,8 @@ class Registry:
                 module=module, qualname=_get_qualname(frame.f_code), strip_last=True
             )
 
+        # print(f"Add resolver: {origin} -> {target} in {namespace}")
+
         if self.graph.has_edge(origin, target):
             edge = self.graph.edges[(origin, target)]
 
@@ -246,7 +249,7 @@ class Registry:
 
         def _add_downcasts(subclass: Type):
             for weight, dtype in enumerate(subclass.__mro__):
-                if origin == dtype:
+                if subclass == dtype:
                     continue
 
                 self.graph.add_edge(
@@ -256,6 +259,8 @@ class Registry:
                     weight=weight,
                     module=__package__,
                 )
+
+                # print(f"Add downcast: {subclass} -> {dtype} in {__package__}, {weight}")
 
         self.graph.add_edge(
             origin, target, resolver=resolver, weight=0, module=namespace
@@ -414,6 +419,7 @@ class Registry:
 
         # The union of the visible modules and registered modules is the available namespace
         namespaces = visible_modules & registered_modules
+
         with resolution_context(self, namespaces, calling_namespace) as context:
             assert context is not None
 
