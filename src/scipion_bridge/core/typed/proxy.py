@@ -1,6 +1,6 @@
 import os
 import inspect
-from pathlib import Path
+from pathlib import Path, PurePath
 import logging
 import warnings
 from enum import Enum
@@ -15,7 +15,7 @@ from ..utils.func_params import extract_func_params
 
 from ..utils.arc import manager as arc_manager
 
-from .resolve import current_registry, resolve_params, resolver
+from .resolve import current_registry, resolve_params, resolver, Registry
 from typing import Optional, Generic, Type, Union, TYPE_CHECKING, Any
 from typing_extensions import TypeAlias, TypeVar, get_args, get_origin
 
@@ -46,7 +46,40 @@ class FuncParam:
             arc_manager.remove_reference(Path(self.str_rep))
 
 
-class Proxy:
+class ProxyMetaclass(type):
+    def __new__(cls, name, bases, dct):
+        x = super().__new__(cls, name, bases, dct)
+
+        def resolve_path_proxy(value: Path):
+            proxy_ext: str = x.extension()  # type: ignore
+            path_ext = value.suffix
+
+            if not proxy_ext == path_ext:
+                raise TypeError(
+                    f"The file extension did not match the proxy (Expected {proxy_ext} but received {path_ext})"
+                )
+
+            return x(value, managed=False)
+
+        # Put this in the scipion_bridge namespace so the user can shadow this
+        # default resolver with their own if needed
+        default_resolver_namespace = Registry._namespace_from_symbol(
+            module=str(__package__),
+            qualname=resolve_path_proxy.__name__,
+            strip_last=True,
+        )
+
+        current_registry().add_resolver(
+            Path,
+            x,
+            resolver=resolve_path_proxy,
+            namespace=default_resolver_namespace,
+        )
+
+        return x
+
+
+class Proxy(metaclass=ProxyMetaclass):
 
     def __init__(self, path: os.PathLike, managed=False, *args, **kwargs):
 
@@ -61,6 +94,15 @@ class Proxy:
     @classmethod
     def file_ext(cls) -> Optional[str]:
         return None
+
+    @classmethod
+    def extension(cls) -> Optional[str]:
+        ext = cls.file_ext()
+        if not ext:
+            return ext
+        else:
+            assert ext.startswith("."), "File extension must start with ."
+            return ext
 
     @classmethod
     def new_temporary_proxy(cls) -> "Proxy":
@@ -125,6 +167,9 @@ class Output(Generic[T]):
 def namedproxy(typename: str, *, file_ext: str):
     if not typename.isidentifier():
         raise ValueError("The typename must be a valid identifier")
+
+    if not file_ext.startswith("."):
+        raise ValueError("The file extension must start with a .")
 
     @classmethod
     def file_ext_func(cls) -> Optional[str]:

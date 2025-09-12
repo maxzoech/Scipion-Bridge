@@ -144,7 +144,7 @@ def test_resolve_proxified():
 
     @proxify
     def foo(
-        inputs: ResolveParam,
+        inputs: ResolveParam[TextFile],
         outputs: ResolveParam = Output(TextFile),
     ) -> Optional[proxy.Proxy]:
         assert inputs == "/path/to/input.txt"
@@ -263,7 +263,7 @@ def test_proxify_with_params():
 
     @proxify
     def foo(
-        inputs: ResolveParam[Proxy],
+        inputs: ResolveParam[TextFile],
         outputs: Resolve[Proxy, Output] = Output(Volume),
         bar: Optional[Tuple] = None,
         *,
@@ -294,6 +294,19 @@ def test_proxify_with_params():
         assert str(out.path) == "/tmp/temp_file_0.vol"
 
         del out
+
+
+def test_resolve_proxify_with_type_error():
+
+    @proxify
+    def foo(inputs: ResolveParam[TextFile]):
+        assert inputs == "/path/to/text_file.txt"
+
+    with pytest.raises(TypeError):
+        foo(Volume(Path("/path/to/volume.vol")))  # Fails because wrong type
+        foo(Path("/path/to/volume.vol"))  # Fails because of wrong extension
+
+    foo(Path("/path/to/text_file.txt"))  # Correctly resolves
 
 
 def test_combine_proxify_and_resolve():
@@ -345,6 +358,7 @@ def test_combine_proxify_and_resolve():
 
         del output_new, output_numpy
 
+
 def test_named_proxy():
 
     PosFile = namedproxy("PosFile", file_ext=".pos")
@@ -368,6 +382,8 @@ def test_named_proxy():
         result = foo(PosFile(path=Path("/path/to/position.pos")))
         assert result.managed == True  # type: ignore
         assert result.managed == True  # type: ignore
+
+        foo(Path("/path/to/position.pos"))
 
 
 if __name__ == "__main__":
